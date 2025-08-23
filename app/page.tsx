@@ -24,6 +24,7 @@ import { Star, TrendingUp, DollarSign, Users } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
   useReadContract,
+  useReadContracts, // Importação adicionada
   useWriteContract,
   useWaitForTransactionReceipt,
   useAccount,
@@ -46,9 +47,7 @@ const STATUS_MAP = [
   "Cancelled",
 ];
 
-// ============================================================================
-// TYPE DEFINITION
-// ============================================================================
+// TYPE DEFINITION for Loan object
 type Loan = {
   id: number;
   borrower: `0x${string}`;
@@ -267,6 +266,16 @@ function LoanRequestCard({ request }: { request: Loan }) {
   const isInvestor =
     userAddress?.toLowerCase() === request.investor.toLowerCase();
 
+  // ✅ 1. BUSCAR O VALOR SACÁVEL PARA O INVESTIDOR
+  const { data: withdrawableAmount } = useReadContract({
+    abi: LoanMarketABI,
+    address: LOAN_MARKET_ADDRESS,
+    functionName: "withdrawableOf",
+    args: [BigInt(request.id)],
+    // Só executa essa chamada se o usuário for o investidor e o empréstimo estiver pago
+    query: { enabled: isInvestor && request.status === 3 },
+  });
+
   const repaymentAmount = useMemo(() => {
     const principal = request.amountRequested;
     const interest = (principal * request.interestBps) / BigInt(10000);
@@ -308,10 +317,20 @@ function LoanRequestCard({ request }: { request: Loan }) {
       args: [BigInt(request.id), rating],
     });
   };
+  // ✅ 2. CRIAR A FUNÇÃO DE SAQUE DO INVESTIDOR
+  const handleWithdrawInvestorShare = () =>
+    writeContract({
+      abi: LoanMarketABI,
+      address: LOAN_MARKET_ADDRESS,
+      functionName: "withdrawInvestorShare",
+      args: [BigInt(request.id)],
+    });
 
   const isLoading = isPending || isConfirming;
 
+  // ✅ 3. ATUALIZAR A LÓGICA DE RENDERIZAÇÃO DOS BOTÕES
   const renderActionButtons = () => {
+    // VISÃO DO MUTUÁRIO (sem alterações)
     if (isBorrower) {
       if (request.status === 1)
         return (
@@ -349,13 +368,67 @@ function LoanRequestCard({ request }: { request: Loan }) {
       );
     }
 
+    // VISÃO DO INVESTIDOR (com a nova lógica)
     if (isInvestor) {
-      const canLeaveScore =
-        (request.status === 3 || request.status === 4) && request.score === 0;
-      if (canLeaveScore) {
+      // Se o empréstimo foi PAGO (status 3)
+      if (request.status === 3) {
+        // E há valor para sacar
+        if (withdrawableAmount && withdrawableAmount > 0) {
+          return (
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={isLoading}
+              onClick={handleWithdrawInvestorShare}
+            >
+              {isLoading
+                ? "Withdrawing..."
+                : `Withdraw ${formatUnits(withdrawableAmount, 18)} ETH`}
+            </Button>
+          );
+        }
+        // Se já sacou, mas ainda não avaliou
+        if (request.score === 0) {
+          // (renderiza a interface de score)
+          return (
+            <div className="space-y-3 text-center">
+              <p className="text-sm font-medium">Leave your feedback</p>
+              <div className="flex items-center justify-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`h-6 w-6 cursor-pointer transition-colors ${
+                      (hoverRating || rating) >= star
+                        ? "fill-accent text-accent"
+                        : "text-muted-foreground"
+                    }`}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setRating(star)}
+                  />
+                ))}
+              </div>
+              <Button
+                className="w-full"
+                size="lg"
+                disabled={isLoading || rating === 0}
+                onClick={handleLeaveScore}
+              >
+                {isLoading ? "Submitting..." : "Submit Score"}
+              </Button>
+            </div>
+          );
+        }
+      }
+
+      // Se o empréstimo ficou INADIMPLENTE (status 4) e não foi avaliado
+      if (request.status === 4 && request.score === 0) {
+        // (renderiza a interface de score diretamente)
         return (
           <div className="space-y-3 text-center">
-            <p className="text-sm font-medium">Leave your feedback</p>
+            <p className="text-sm font-medium text-destructive">
+              Borrower defaulted. Leave your feedback
+            </p>
             <div className="flex items-center justify-center gap-1">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
@@ -382,8 +455,16 @@ function LoanRequestCard({ request }: { request: Loan }) {
           </div>
         );
       }
+
+      // Para todos os outros status, apenas mostra o status.
+      return (
+        <Button className="w-full" size="lg" disabled>
+          {STATUS_MAP[request.status]}
+        </Button>
+      );
     }
 
+    // VISÃO DE OUTROS USUÁRIOS (sem alterações)
     const isLoanOpenForInvestment = request.status === 0;
     return (
       <Button
@@ -477,70 +558,66 @@ function LoanRequestCard({ request }: { request: Loan }) {
 // ============================================================================
 export default function InvestmentRequestsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
-  const [isLoadingLoans, setIsLoadingLoans] = useState(true);
 
-  const { data: loanCount } = useReadContract({
+  const { data: loanCount, isLoading: isLoadingCount } = useReadContract({
     abi: LoanMarketABI,
     address: LOAN_MARKET_ADDRESS,
     functionName: "getLoanCount",
   });
 
-  useEffect(() => {
-    const fetchLoans = async () => {
-      if (typeof loanCount === "undefined" || !window.ethereum) {
-        setIsLoadingLoans(false);
-        return;
-      }
-      setIsLoadingLoans(true);
-      const count = Number(loanCount);
-      const promises = Array.from({ length: count }, (_, i) =>
-        window
-          .ethereum!.request({
-            method: "eth_call",
-            params: [
-              {
-                to: LOAN_MARKET_ADDRESS,
-                data: encodeFunctionData({
-                  abi: LoanMarketABI,
-                  functionName: "loans",
-                  args: [BigInt(i)],
-                }),
-              },
-              "latest",
-            ],
-          })
-          .then((data: `0x${string}` | undefined) => {
-            if (!data) {
-              throw new Error(`Failed to fetch data for loan ID ${i}`);
-            }
-            const decoded = decodeFunctionResult({
-              abi: LoanMarketABI,
-              functionName: "loans",
-              data,
-            });
-            return {
-              id: i,
-              borrower: decoded[0],
-              amountRequested: decoded[1],
-              amountFunded: decoded[2],
-              interestBps: decoded[3],
-              durationSecs: decoded[4],
-              fundingDeadline: decoded[5],
-              status: decoded[6],
-              startTimestamp: decoded[7],
-              totalRepayment: decoded[8],
-              investor: decoded[9],
-              score: decoded[10],
-              defaultTimestamp: decoded[11],
-            } as Loan;
-          })
-      );
-      const results = await Promise.all(promises);
-      setLoans(results.reverse());
-      setIsLoadingLoans(false);
-    };
-    fetchLoans();
+  const loanContracts = useMemo(() => {
+    if (!loanCount) return [];
+    const count = Number(loanCount);
+    return Array.from({ length: count }, (_, i) => ({
+      abi: LoanMarketABI,
+      address: LOAN_MARKET_ADDRESS,
+      functionName: "loans",
+      args: [BigInt(i)],
+    }));
   }, [loanCount]);
+
+  const { data: loansData, isLoading: isLoadingLoansData } = useReadContracts({
+    contracts: loanContracts,
+    query: { enabled: loanContracts.length > 0 },
+  });
+
+  useEffect(() => {
+    if (loansData) {
+      const formattedLoans = loansData.map((result, i) => {
+        const decoded = result.result as unknown as [
+          `0x${string}`,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          number,
+          bigint,
+          bigint,
+          `0x${string}`,
+          number,
+          bigint
+        ];
+
+        return {
+          id: i,
+          borrower: decoded[0],
+          amountRequested: decoded[1],
+          amountFunded: decoded[2],
+          interestBps: decoded[3],
+          durationSecs: decoded[4],
+          fundingDeadline: decoded[5],
+          status: decoded[6],
+          startTimestamp: decoded[7],
+          totalRepayment: decoded[8],
+          investor: decoded[9],
+          score: decoded[10],
+          defaultTimestamp: decoded[11],
+        };
+      });
+      setLoans(formattedLoans.reverse());
+    }
+  }, [loansData]);
 
   const stats = useMemo(() => {
     if (!loans || loans.length === 0) {
@@ -574,6 +651,8 @@ export default function InvestmentRequestsPage() {
     )} ETH`;
     return { activeRequests, avgInterestRate, totalVolume };
   }, [loans]);
+
+  const isLoading = isLoadingCount || isLoadingLoansData;
 
   return (
     <div className="min-h-screen bg-background">
@@ -664,7 +743,7 @@ export default function InvestmentRequestsPage() {
 
         {/* Loan Requests Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {isLoadingLoans ? (
+          {isLoading ? (
             <p className="col-span-full text-center text-muted-foreground">
               Loading loans...
             </p>
