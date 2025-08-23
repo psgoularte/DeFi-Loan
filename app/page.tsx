@@ -36,7 +36,7 @@ import {
   parseEther,
 } from "viem";
 
-// Mapeamento dos status do contrato para texto legível
+// Mapping of contract statuses to readable text
 const STATUS_MAP = [
   "Open",
   "Funded",
@@ -47,7 +47,26 @@ const STATUS_MAP = [
 ];
 
 // ============================================================================
-// COMPONENTES AUXILIARES
+// TYPE DEFINITION
+// ============================================================================
+type Loan = {
+  id: number;
+  borrower: `0x${string}`;
+  amountRequested: bigint;
+  amountFunded: bigint;
+  interestBps: bigint;
+  durationSecs: bigint;
+  fundingDeadline: bigint;
+  status: number;
+  startTimestamp: bigint;
+  totalRepayment: bigint;
+  investor: `0x${string}`;
+  score: number;
+  defaultTimestamp: bigint;
+};
+
+// ============================================================================
+// HELPER COMPONENTS
 // ============================================================================
 function ScoreStars({ score }: { score: number }) {
   const displayScore = score > 0 ? score : 0;
@@ -71,7 +90,7 @@ function ScoreStars({ score }: { score: number }) {
 }
 
 // ============================================================================
-// COMPONENTE: MODAL PARA REQUISITAR EMPRÉSTIMO
+// LOAN REQUEST MODAL COMPONENT
 // ============================================================================
 interface RequestLoanDialogProps {
   triggerButtonText: string;
@@ -97,7 +116,6 @@ function RequestLoanDialog({
   const [amount, setAmount] = useState("");
   const [interestBps, setInterestBps] = useState("");
   const [durationDays, setDurationDays] = useState("");
-
   const { isConnected } = useAccount();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
@@ -106,10 +124,7 @@ function RequestLoanDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isConnected || !amount || !interestBps || !durationDays) {
-      alert("Please connect your wallet and fill all fields.");
-      return;
-    }
+    if (!isConnected || !amount || !interestBps || !durationDays) return;
     const amountInWei = parseEther(amount);
     const interest = BigInt(interestBps);
     const durationInSeconds = BigInt(Number(durationDays) * 24 * 60 * 60);
@@ -151,8 +166,8 @@ function RequestLoanDialog({
         <DialogHeader>
           <DialogTitle>Request a New Loan</DialogTitle>
           <DialogDescription>
-            Fill in the details below. Your request will be visible to investors
-            after submission.
+            Fill in the details below. Your request will be visible to
+            investors.
           </DialogDescription>
         </DialogHeader>
         {isConnected ? (
@@ -218,7 +233,9 @@ function RequestLoanDialog({
             )}
             {error && (
               <p className="text-sm text-red-600 mt-2 text-center">
-                ❌ {(error as any).shortMessage || error.message}
+                ❌{" "}
+                {(error as { shortMessage?: string }).shortMessage ||
+                  error.message}
               </p>
             )}
           </form>
@@ -232,16 +249,18 @@ function RequestLoanDialog({
   );
 }
 
-// 🏦 Card do Empréstimo (com dados do contrato)
-function LoanRequestCard({ request }: { request: any }) {
+// ============================================================================
+// LOAN REQUEST CARD COMPONENT
+// ============================================================================
+function LoanRequestCard({ request }: { request: Loan }) {
   const { address: userAddress } = useAccount();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
 
-  const [rating, setRating] = useState(0); // Estado para a avaliação do investidor
-  const [hoverRating, setHoverRating] = useState(0); // Estado para o efeito de hover das estrelas
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
 
   const isBorrower =
     userAddress?.toLowerCase() === request.borrower.toLowerCase();
@@ -250,7 +269,7 @@ function LoanRequestCard({ request }: { request: any }) {
 
   const repaymentAmount = useMemo(() => {
     const principal = request.amountRequested;
-    const interest = BigInt(principal * request.interestBps) / BigInt(10000);
+    const interest = (principal * request.interestBps) / BigInt(10000);
     return principal + interest;
   }, [request.amountRequested, request.interestBps]);
 
@@ -293,7 +312,6 @@ function LoanRequestCard({ request }: { request: any }) {
   const isLoading = isPending || isConfirming;
 
   const renderActionButtons = () => {
-    // VISÃO DO MUTUÁRIO
     if (isBorrower) {
       if (request.status === 1)
         return (
@@ -303,7 +321,7 @@ function LoanRequestCard({ request }: { request: any }) {
             disabled={isLoading}
             onClick={handleWithdraw}
           >
-            {isLoading ? "Withdrawing..." : "Withdraw funds"}
+            {isLoading ? "Withdrawing..." : "Withdraw Funds"}
           </Button>
         );
       if (request.status === 2)
@@ -316,9 +334,12 @@ function LoanRequestCard({ request }: { request: any }) {
               onClick={handleRepay}
             >
               {isLoading
-                ? "Paying..."
-                : `Pay debt (${formatUnits(repaymentAmount, 18)} ETH)`}
+                ? "Repaying..."
+                : `Repay Loan (${formatUnits(repaymentAmount, 18)} ETH)`}
             </Button>
+            <p className="text-xs text-muted-foreground mt-1">
+              Principal + Interest
+            </p>
           </div>
         );
       return (
@@ -328,14 +349,13 @@ function LoanRequestCard({ request }: { request: any }) {
       );
     }
 
-    // VISÃO DO INVESTIDOR
     if (isInvestor) {
       const canLeaveScore =
         (request.status === 3 || request.status === 4) && request.score === 0;
       if (canLeaveScore) {
         return (
           <div className="space-y-3 text-center">
-            <p className="text-sm font-medium">Deixe sua avaliação</p>
+            <p className="text-sm font-medium">Leave your feedback</p>
             <div className="flex items-center justify-center gap-1">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
@@ -357,14 +377,13 @@ function LoanRequestCard({ request }: { request: any }) {
               disabled={isLoading || rating === 0}
               onClick={handleLeaveScore}
             >
-              {isLoading ? "Sending..." : "Send feedback"}
+              {isLoading ? "Submitting..." : "Submit Score"}
             </Button>
           </div>
         );
       }
     }
 
-    // VISÃO DE OUTROS USUÁRIOS
     const isLoanOpenForInvestment = request.status === 0;
     return (
       <Button
@@ -402,9 +421,7 @@ function LoanRequestCard({ request }: { request: any }) {
           <Badge
             variant="secondary"
             className="bg-accent/10 text-accent-foreground"
-          >
-            {`${Number(request.durationSecs) / (60 * 60 * 24)} days`}
-          </Badge>
+          >{`${Number(request.durationSecs) / (60 * 60 * 24)} days`}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4 flex-grow flex flex-col">
@@ -414,7 +431,7 @@ function LoanRequestCard({ request }: { request: any }) {
               <Star className="h-4 w-4 text-accent" />
               <span className="text-sm font-medium">Credit Score</span>
             </div>
-            <ScoreStars score={Number(request.score)} />
+            <ScoreStars score={request.score} />
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -444,7 +461,9 @@ function LoanRequestCard({ request }: { request: any }) {
           )}
           {error && (
             <p className="text-sm text-center mt-2 text-red-600">
-              ❌ {(error as any).shortMessage || error.message}
+              ❌{" "}
+              {(error as { shortMessage?: string }).shortMessage ||
+                error.message}
             </p>
           )}
         </div>
@@ -454,10 +473,10 @@ function LoanRequestCard({ request }: { request: any }) {
 }
 
 // ============================================================================
-// COMPONENTE PRINCIPAL DA PÁGINA
+// MAIN PAGE COMPONENT
 // ============================================================================
 export default function InvestmentRequestsPage() {
-  const [loans, setLoans] = useState<any[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoadingLoans, setIsLoadingLoans] = useState(true);
 
   const { data: loanCount } = useReadContract({
