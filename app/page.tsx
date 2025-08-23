@@ -266,13 +266,33 @@ function LoanRequestCard({ request }: { request: Loan }) {
   const isInvestor =
     userAddress?.toLowerCase() === request.investor.toLowerCase();
 
-  // ✅ 1. BUSCAR O VALOR SACÁVEL PARA O INVESTIDOR
+  // HOOK TO FETCH THE BORROWER'S AVERAGE SCORE
+  const { data: averageScoreData } = useReadContract({
+    abi: LoanMarketABI,
+    address: LOAN_MARKET_ADDRESS,
+    functionName: "averageScoreOfBorrower",
+    args: [request.borrower],
+  });
+
+  // LOGIC TO DETERMINE WHICH SCORE TO DISPLAY
+  const displayScore = useMemo(() => {
+    // If the loan has a final score, display it
+    if (request.score > 0) {
+      return request.score;
+    }
+    // Otherwise, display the calculated average score
+    if (averageScoreData) {
+      return Number(averageScoreData) / 100;
+    }
+    // Default to 0 while loading
+    return 0;
+  }, [request.score, averageScoreData]);
+
   const { data: withdrawableAmount } = useReadContract({
     abi: LoanMarketABI,
     address: LOAN_MARKET_ADDRESS,
     functionName: "withdrawableOf",
     args: [BigInt(request.id)],
-    // Só executa essa chamada se o usuário for o investidor e o empréstimo estiver pago
     query: { enabled: isInvestor && request.status === 3 },
   });
 
@@ -317,7 +337,6 @@ function LoanRequestCard({ request }: { request: Loan }) {
       args: [BigInt(request.id), rating],
     });
   };
-  // ✅ 2. CRIAR A FUNÇÃO DE SAQUE DO INVESTIDOR
   const handleWithdrawInvestorShare = () =>
     writeContract({
       abi: LoanMarketABI,
@@ -328,9 +347,8 @@ function LoanRequestCard({ request }: { request: Loan }) {
 
   const isLoading = isPending || isConfirming;
 
-  // ✅ 3. ATUALIZAR A LÓGICA DE RENDERIZAÇÃO DOS BOTÕES
   const renderActionButtons = () => {
-    // VISÃO DO MUTUÁRIO (sem alterações)
+    // Borrower's view
     if (isBorrower) {
       if (request.status === 1)
         return (
@@ -368,11 +386,9 @@ function LoanRequestCard({ request }: { request: Loan }) {
       );
     }
 
-    // VISÃO DO INVESTIDOR (com a nova lógica)
+    // Investor's view
     if (isInvestor) {
-      // Se o empréstimo foi PAGO (status 3)
       if (request.status === 3) {
-        // E há valor para sacar
         if (withdrawableAmount && withdrawableAmount > 0) {
           return (
             <Button
@@ -387,9 +403,7 @@ function LoanRequestCard({ request }: { request: Loan }) {
             </Button>
           );
         }
-        // Se já sacou, mas ainda não avaliou
         if (request.score === 0) {
-          // (renderiza a interface de score)
           return (
             <div className="space-y-3 text-center">
               <p className="text-sm font-medium">Leave your feedback</p>
@@ -421,9 +435,7 @@ function LoanRequestCard({ request }: { request: Loan }) {
         }
       }
 
-      // Se o empréstimo ficou INADIMPLENTE (status 4) e não foi avaliado
       if (request.status === 4 && request.score === 0) {
-        // (renderiza a interface de score diretamente)
         return (
           <div className="space-y-3 text-center">
             <p className="text-sm font-medium text-destructive">
@@ -456,7 +468,6 @@ function LoanRequestCard({ request }: { request: Loan }) {
         );
       }
 
-      // Para todos os outros status, apenas mostra o status.
       return (
         <Button className="w-full" size="lg" disabled>
           {STATUS_MAP[request.status]}
@@ -464,7 +475,7 @@ function LoanRequestCard({ request }: { request: Loan }) {
       );
     }
 
-    // VISÃO DE OUTROS USUÁRIOS (sem alterações)
+    // Public view
     const isLoanOpenForInvestment = request.status === 0;
     return (
       <Button
@@ -512,7 +523,8 @@ function LoanRequestCard({ request }: { request: Loan }) {
               <Star className="h-4 w-4 text-accent" />
               <span className="text-sm font-medium">Credit Score</span>
             </div>
-            <ScoreStars score={request.score} />
+            {/* USE THE CORRECT SCORE VARIABLE */}
+            <ScoreStars score={displayScore} />
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
