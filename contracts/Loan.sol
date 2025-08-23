@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT 
 pragma solidity ^0.8.19;
 
-contract LoanMarketSimplified {
+contract LoanMarket {
     address public owner;
     uint private _status = 1; // ⚡ VARIÁVEL DE ESTADO PARA REENTRÂNCIA
     

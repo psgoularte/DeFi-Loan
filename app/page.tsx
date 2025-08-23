@@ -1,8 +1,13 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/cache/components/ui/card";
+import { Badge } from "@/cache/components/ui/badge";
+import { Button } from "@/cache/components/ui/button";
 import { Star, TrendingUp, DollarSign, Users } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
