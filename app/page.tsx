@@ -233,7 +233,6 @@ function RequestLoanDialog({
 }
 
 // 🏦 Card do Empréstimo (com dados do contrato)
-// ✅ ATUALIZADO COM LÓGICA COMPLETA PARA MUTUÁRIO E INVESTIDOR
 function LoanRequestCard({ request }: { request: any }) {
   const { address: userAddress } = useAccount();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
@@ -241,8 +240,13 @@ function LoanRequestCard({ request }: { request: any }) {
     hash,
   });
 
+  const [rating, setRating] = useState(0); // Estado para a avaliação do investidor
+  const [hoverRating, setHoverRating] = useState(0); // Estado para o efeito de hover das estrelas
+
   const isBorrower =
     userAddress?.toLowerCase() === request.borrower.toLowerCase();
+  const isInvestor =
+    userAddress?.toLowerCase() === request.investor.toLowerCase();
 
   const repaymentAmount = useMemo(() => {
     const principal = request.amountRequested;
@@ -273,10 +277,23 @@ function LoanRequestCard({ request }: { request: any }) {
       args: [BigInt(request.id)],
       value: repaymentAmount,
     });
+  const handleLeaveScore = () => {
+    if (rating === 0) {
+      alert("Please select a score from 1 to 5.");
+      return;
+    }
+    writeContract({
+      abi: LoanMarketABI,
+      address: LOAN_MARKET_ADDRESS,
+      functionName: "leaveScore",
+      args: [BigInt(request.id), rating],
+    });
+  };
 
   const isLoading = isPending || isConfirming;
 
   const renderActionButtons = () => {
+    // VISÃO DO MUTUÁRIO
     if (isBorrower) {
       if (request.status === 1)
         return (
@@ -286,7 +303,7 @@ function LoanRequestCard({ request }: { request: any }) {
             disabled={isLoading}
             onClick={handleWithdraw}
           >
-            {isLoading ? "Sacando..." : "Sacar Fundos"}
+            {isLoading ? "Withdrawing..." : "Withdraw funds"}
           </Button>
         );
       if (request.status === 2)
@@ -299,12 +316,9 @@ function LoanRequestCard({ request }: { request: any }) {
               onClick={handleRepay}
             >
               {isLoading
-                ? "Pagando..."
-                : `Pagar Dívida (${formatUnits(repaymentAmount, 18)} ETH)`}
+                ? "Paying..."
+                : `Pay debt (${formatUnits(repaymentAmount, 18)} ETH)`}
             </Button>
-            <p className="text-xs text-muted-foreground mt-1">
-              Principal + Juros
-            </p>
           </div>
         );
       return (
@@ -313,6 +327,44 @@ function LoanRequestCard({ request }: { request: any }) {
         </Button>
       );
     }
+
+    // VISÃO DO INVESTIDOR
+    if (isInvestor) {
+      const canLeaveScore =
+        (request.status === 3 || request.status === 4) && request.score === 0;
+      if (canLeaveScore) {
+        return (
+          <div className="space-y-3 text-center">
+            <p className="text-sm font-medium">Deixe sua avaliação</p>
+            <div className="flex items-center justify-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  className={`h-6 w-6 cursor-pointer transition-colors ${
+                    (hoverRating || rating) >= star
+                      ? "fill-accent text-accent"
+                      : "text-muted-foreground"
+                  }`}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  onClick={() => setRating(star)}
+                />
+              ))}
+            </div>
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={isLoading || rating === 0}
+              onClick={handleLeaveScore}
+            >
+              {isLoading ? "Sending..." : "Send feedback"}
+            </Button>
+          </div>
+        );
+      }
+    }
+
+    // VISÃO DE OUTROS USUÁRIOS
     const isLoanOpenForInvestment = request.status === 0;
     return (
       <Button
@@ -323,8 +375,8 @@ function LoanRequestCard({ request }: { request: any }) {
       >
         {isLoading
           ? isPending
-            ? "Assinando..."
-            : "Confirmando..."
+            ? "Signing..."
+            : "Confirming..."
           : isLoanOpenForInvestment
           ? "Invest Now"
           : STATUS_MAP[request.status]}
@@ -387,7 +439,7 @@ function LoanRequestCard({ request }: { request: any }) {
           {renderActionButtons()}
           {isSuccess && (
             <p className="text-sm text-center mt-2 text-green-600">
-              ✅ Transação Confirmada!
+              ✅ Transaction Confirmed!
             </p>
           )}
           {error && (
