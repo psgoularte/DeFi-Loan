@@ -1,7 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Star, TrendingUp, DollarSign, Users } from "lucide-react"
+"use client";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Star, TrendingUp, DollarSign, Users } from "lucide-react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 // Mock data for loan requests
 const loanRequests = [
@@ -59,7 +62,7 @@ const loanRequests = [
     purpose: "Commercial Property",
     duration: "60 months",
   },
-]
+];
 
 function ScoreStars({ score }: { score: number }) {
   return (
@@ -71,14 +74,14 @@ function ScoreStars({ score }: { score: number }) {
             star <= Math.floor(score)
               ? "fill-accent text-accent"
               : star <= score
-                ? "fill-accent/50 text-accent"
-                : "text-muted-foreground"
+              ? "fill-accent/50 text-accent"
+              : "text-muted-foreground"
           }`}
         />
       ))}
       <span className="ml-1 text-sm font-medium">{score}</span>
     </div>
-  )
+  );
 }
 
 function LoanRequestCard({ request }: { request: (typeof loanRequests)[0] }) {
@@ -87,12 +90,18 @@ function LoanRequestCard({ request }: { request: (typeof loanRequests)[0] }) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-lg font-semibold">{request.purpose}</CardTitle>
+            <CardTitle className="text-lg font-semibold">
+              {request.purpose}
+            </CardTitle>
             <p className="text-sm text-muted-foreground font-mono">
-              {request.creatorAddress.slice(0, 6)}...{request.creatorAddress.slice(-4)}
+              {request.creatorAddress.slice(0, 6)}...
+              {request.creatorAddress.slice(-4)}
             </p>
           </div>
-          <Badge variant="secondary" className="bg-accent/10 text-accent-foreground">
+          <Badge
+            variant="secondary"
+            className="bg-accent/10 text-accent-foreground"
+          >
             {request.duration}
           </Badge>
         </div>
@@ -111,7 +120,9 @@ function LoanRequestCard({ request }: { request: (typeof loanRequests)[0] }) {
               <TrendingUp className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">Interest Rate</span>
             </div>
-            <p className="text-lg font-bold text-primary">{request.interestRate}%</p>
+            <p className="text-lg font-bold text-primary">
+              {request.interestRate}%
+            </p>
           </div>
         </div>
 
@@ -120,7 +131,9 @@ function LoanRequestCard({ request }: { request: (typeof loanRequests)[0] }) {
             <DollarSign className="h-4 w-4 text-foreground" />
             <span className="text-sm font-medium">Loan Amount</span>
           </div>
-          <p className="text-2xl font-bold">${request.loanAmount.toLocaleString()}</p>
+          <p className="text-2xl font-bold">
+            ${request.loanAmount.toLocaleString()}
+          </p>
         </div>
 
         <div className="pt-2">
@@ -130,7 +143,7 @@ function LoanRequestCard({ request }: { request: (typeof loanRequests)[0] }) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export default function InvestmentRequestsPage() {
@@ -147,33 +160,37 @@ export default function InvestmentRequestsPage() {
               <h1 className="text-xl font-bold">DeFi Lending</h1>
             </div>
             <nav className="hidden md:flex items-center gap-6">
-              <a href="#" className="text-sm font-medium hover:text-primary transition-colors">
-                Home
-              </a>
-              <a href="#" className="text-sm font-medium hover:text-primary transition-colors">
-                Dashboard
-              </a>
-              <a href="#" className="text-sm font-medium hover:text-primary transition-colors">
-                About
-              </a>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="lg">
                 Request Loan
               </Button>
-              <Button variant="outline" size="sm">
-                Connect Wallet
-              </Button>
+              <ConnectButton />
             </nav>
           </div>
         </div>
       </header>
 
+      {/* Centralized brand header with brief text */}
+      <section className="bg-gradient-to-r from-background to-card border-b">
+        <div className="container mx-auto px-4 py-8 text-center">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <h1 className="text-3xl font-bold">DeFi Lending Platform</h1>
+            </div>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              Connect borrowers and investors through secure, transparent
+              blockchain technology.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Page Title and Stats */}
+        {/* Page Stats */}
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Investment Opportunities</h2>
-          <p className="text-muted-foreground mb-6">Discover verified loan requests from our community of borrowers</p>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <Card>
               <CardContent className="p-4">
@@ -182,7 +199,9 @@ export default function InvestmentRequestsPage() {
                     <Users className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Active Requests</p>
+                    <p className="text-sm text-muted-foreground">
+                      Active Requests
+                    </p>
                     <p className="text-2xl font-bold">247</p>
                   </div>
                 </div>
@@ -196,7 +215,9 @@ export default function InvestmentRequestsPage() {
                     <TrendingUp className="h-5 w-5 text-accent-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Avg. Interest Rate</p>
+                    <p className="text-sm text-muted-foreground">
+                      Avg. Interest Rate
+                    </p>
                     <p className="text-2xl font-bold">12.1%</p>
                   </div>
                 </div>
@@ -210,7 +231,9 @@ export default function InvestmentRequestsPage() {
                     <DollarSign className="h-5 w-5 text-secondary-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Volume</p>
+                    <p className="text-sm text-muted-foreground">
+                      Total Volume
+                    </p>
                     <p className="text-2xl font-bold">$2.4M</p>
                   </div>
                 </div>
@@ -232,15 +255,155 @@ export default function InvestmentRequestsPage() {
             <CardContent className="p-8">
               <h3 className="text-2xl font-bold mb-2">Need a Loan?</h3>
               <p className="text-muted-foreground mb-6">
-                Join our platform and get access to competitive rates from verified investors
+                Join our platform and get access to competitive rates from
+                verified investors
               </p>
-              <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
+              <Button
+                size="lg"
+                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+              >
                 Request a Loan
               </Button>
             </CardContent>
           </Card>
         </div>
       </main>
+
+      {/* Project explanation section as a map */}
+      <section className="bg-card border-t">
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-12">
+              How Our Platform Works
+            </h2>
+
+            {/* Process Map */}
+            <div className="relative">
+              {/* Connection lines */}
+              <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-accent to-primary transform -translate-y-1/2"></div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 relative z-10">
+                {/* Step 1 */}
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <span className="text-2xl font-bold text-primary-foreground">
+                      1
+                    </span>
+                  </div>
+                  <div className="bg-background border-2 border-primary/20 rounded-lg p-6 shadow-sm">
+                    <h3 className="text-xl font-semibold mb-3 text-primary">
+                      Submit Request
+                    </h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      Borrowers create loan requests with their blockchain
+                      address, desired amount, and purpose. Our AI analyzes
+                      on-chain activity to generate credit scores.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <span className="text-2xl font-bold text-accent-foreground">
+                      2
+                    </span>
+                  </div>
+                  <div className="bg-background border-2 border-accent/20 rounded-lg p-6 shadow-sm">
+                    <h3 className="text-xl font-semibold mb-3 text-accent">
+                      Verification
+                    </h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      Smart contracts verify borrower credentials and
+                      transaction history. Credit scores (1-5) are calculated
+                      based on blockchain activity and reputation.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <span className="text-2xl font-bold text-primary-foreground">
+                      3
+                    </span>
+                  </div>
+                  <div className="bg-background border-2 border-primary/20 rounded-lg p-6 shadow-sm">
+                    <h3 className="text-xl font-semibold mb-3 text-primary">
+                      Investment
+                    </h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      Investors browse verified requests, review credit scores
+                      and interest rates, then fund loans directly through
+                      secure smart contracts.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 4 */}
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <span className="text-2xl font-bold text-accent-foreground">
+                      4
+                    </span>
+                  </div>
+                  <div className="bg-background border-2 border-accent/20 rounded-lg p-6 shadow-sm">
+                    <h3 className="text-xl font-semibold mb-3 text-accent">
+                      Automated Returns
+                    </h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      Smart contracts automatically handle repayments and
+                      interest distribution. Investors receive returns directly
+                      to their wallets without intermediaries.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Key Benefits */}
+            <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="border-primary/20">
+                <CardContent className="p-6 text-center">
+                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <TrendingUp className="h-6 w-6 text-primary" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Higher Returns</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Earn 8-18% APY by cutting out traditional banking
+                    intermediaries
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-accent/20">
+                <CardContent className="p-6 text-center">
+                  <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <DollarSign className="h-6 w-6 text-accent" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Full Transparency</h4>
+                  <p className="text-sm text-muted-foreground">
+                    All transactions recorded on blockchain for complete audit
+                    trail
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-primary/20">
+                <CardContent className="p-6 text-center">
+                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <Users className="h-6 w-6 text-primary" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Global Access</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Connect with borrowers and investors worldwide, 24/7
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="border-t bg-card mt-16">
@@ -254,7 +417,8 @@ export default function InvestmentRequestsPage() {
                 <span className="font-bold">DeFi Lending</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Secure, transparent, and decentralized lending platform built on blockchain technology.
+                Secure, transparent, and decentralized lending platform built on
+                blockchain technology.
               </p>
             </div>
 
@@ -262,17 +426,26 @@ export default function InvestmentRequestsPage() {
               <h4 className="font-semibold mb-3">Platform</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     How it Works
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Security
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Fees
                   </a>
                 </li>
@@ -283,17 +456,26 @@ export default function InvestmentRequestsPage() {
               <h4 className="font-semibold mb-3">Support</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Help Center
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Contact Us
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Community
                   </a>
                 </li>
@@ -304,17 +486,26 @@ export default function InvestmentRequestsPage() {
               <h4 className="font-semibold mb-3">Legal</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Privacy Policy
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Terms of Service
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Risk Disclosure
                   </a>
                 </li>
@@ -328,5 +519,5 @@ export default function InvestmentRequestsPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }
