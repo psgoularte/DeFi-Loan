@@ -1,4 +1,4 @@
-// app/components/RequestLoanDialog.tsx ou onde você salvou o arquivo
+// app/components/RequestLoanDialog.tsx
 
 "use client";
 
@@ -61,18 +61,13 @@ export function RequestLoanDialog({
       return;
     }
 
-    // Converter os valores para o formato que o contrato espera
     const amountInWei = parseEther(amount);
     const interest = BigInt(interestBps);
     const durationInSeconds = BigInt(Number(durationDays) * 24 * 60 * 60);
-
-    // ✅ CORREÇÃO: Adicionando o 4º argumento (fundingDeadline)
-    // Definindo um prazo de 30 dias a partir de agora, em segundos (timestamp UNIX)
     const deadline = BigInt(
       Math.floor(new Date().getTime() / 1000) + 30 * 24 * 60 * 60
     );
 
-    // ✅ CORREÇÃO: Usando a função "createLoan" e passando os 4 argumentos corretos
     writeContract({
       abi: LoanMarketABI,
       address: LOAN_MARKET_ADDRESS,
@@ -81,7 +76,6 @@ export function RequestLoanDialog({
     });
   };
 
-  // Efeito para fechar o modal e limpar o formulário após o sucesso
   useEffect(() => {
     if (isSuccess && open) {
       const timer = setTimeout(() => {
@@ -89,7 +83,7 @@ export function RequestLoanDialog({
         setAmount("");
         setInterestBps("");
         setDurationDays("");
-      }, 2500); // Fecha após 2.5 segundos
+      }, 2500);
       return () => clearTimeout(timer);
     }
   }, [isSuccess, open]);
@@ -174,9 +168,12 @@ export function RequestLoanDialog({
                 ✅ Loan request created successfully!
               </p>
             )}
+            {/* ✅ CORREÇÃO APLICADA AQUI */}
             {error && (
               <p className="text-sm text-red-600 mt-2 text-center">
-                ❌ Error: {(error as any).shortMessage || error.message}
+                ❌ Error:{" "}
+                {(error as { shortMessage?: string }).shortMessage ||
+                  error.message}
               </p>
             )}
           </form>
