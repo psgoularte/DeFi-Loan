@@ -487,15 +487,15 @@ export default function InvestmentRequestsPage() {
 
   useEffect(() => {
     const fetchLoans = async () => {
-      if (typeof loanCount === "undefined" || !(window as any).ethereum) {
+      if (typeof loanCount === "undefined" || !window.ethereum) {
         setIsLoadingLoans(false);
         return;
       }
       setIsLoadingLoans(true);
       const count = Number(loanCount);
       const promises = Array.from({ length: count }, (_, i) =>
-        (window as any).ethereum
-          .request({
+        window
+          .ethereum!.request({
             method: "eth_call",
             params: [
               {
@@ -509,7 +509,10 @@ export default function InvestmentRequestsPage() {
               "latest",
             ],
           })
-          .then((data: any) => {
+          .then((data: `0x${string}` | undefined) => {
+            if (!data) {
+              throw new Error(`Failed to fetch data for loan ID ${i}`);
+            }
             const decoded = decodeFunctionResult({
               abi: LoanMarketABI,
               functionName: "loans",
@@ -529,7 +532,7 @@ export default function InvestmentRequestsPage() {
               investor: decoded[9],
               score: decoded[10],
               defaultTimestamp: decoded[11],
-            };
+            } as Loan;
           })
       );
       const results = await Promise.all(promises);
