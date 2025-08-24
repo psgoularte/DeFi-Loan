@@ -30,12 +30,7 @@ import {
   useAccount,
 } from "wagmi";
 import { LoanMarketABI, LOAN_MARKET_ADDRESS } from "@/app/lib/contracts";
-import {
-  formatUnits,
-  encodeFunctionData,
-  decodeFunctionResult,
-  parseEther,
-} from "viem";
+import { formatUnits, parseEther } from "viem";
 
 // Mapping of contract statuses to readable text
 const STATUS_MAP = [
@@ -558,7 +553,8 @@ function LoanRequestCard({ request }: { request: Loan }) {
 export default function InvestmentRequestsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  // ✅ CORREÇÃO: Paginação ajustada para 9 itens
+  const itemsPerPage = 9;
 
   const { data: loanCount, isLoading: isLoadingCount } = useReadContract({
     abi: LoanMarketABI,
@@ -883,9 +879,10 @@ export default function InvestmentRequestsPage() {
                     <h3 className="text-xl font-semibold mb-3 text-accent">
                       Automated Payout
                     </h3>
+                    {/* ✅ CORREÇÃO: Apóstrofo escapado */}
                     <p className="text-muted-foreground text-sm leading-relaxed">
                       After repayment, investors can withdraw their principal
-                      plus interest. The platform's 10% fee on profits is
+                      plus interest. The platform&apos;s 10% fee on profits is
                       handled automatically by the smart contract.
                     </p>
                   </div>
