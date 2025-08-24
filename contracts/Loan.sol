@@ -3,8 +3,9 @@ pragma solidity ^0.8.19;
 
 contract LoanMarket {
     address public owner;
-    address payable public feeWallet; // Carteira para receber as taxas da plataforma.
-    uint private _status = 1; // Variável de estado para o guarda de re-entrância
+    address payable public feeWallet = payable(0x0fadE5b267b572dc1F002d1b9148976cCCE9C8C8); 
+    
+    uint private _status = 1; // Guarda de re-entrância
     
     constructor() {
         owner = msg.sender;
@@ -32,6 +33,10 @@ contract LoanMarket {
     event Defaulted(uint indexed loanId, uint defaultTimestamp);
     event LoanCancelled(uint indexed loanId, address indexed borrower);
 
+    // novos
+    event CollateralWithdrawn(uint indexed loanId, address indexed borrower, uint amount);
+    event CollateralClaimed(uint indexed loanId, address indexed investor, uint grossAmount, uint fee, uint netAmount);
+
     enum Status { Open, Funded, Active, Repaid, Defaulted, Cancelled }
 
     struct Loan {
@@ -47,31 +52,25 @@ contract LoanMarket {
         address investor;
         uint8 score;
         uint defaultTimestamp;
+        uint collateralAmount;
+        bool collateralClaimed;
     }
 
     Loan[] public loans;
     mapping(uint => uint) public withdrawableOf;
-
-    // --- Funções do Dono ---
-    function setFeeWallet(address payable _feeWallet) external onlyOwner {
-        require(_feeWallet != address(0), "Cannot be zero address");
-        feeWallet = _feeWallet;
-    }
-
-    function rescueETH(address to, uint amount) external onlyOwner {
-        (bool s, ) = to.call{value: amount}("");
-        require(s, "Rescue failed");
-    }
 
     // --- Funções Principais ---
     function createLoan(
         uint amountRequested,
         uint interestBps,
         uint durationSecs,
-        uint fundingDeadline
-    ) external returns (uint loanId) {
+        uint fundingDeadline,
+        uint collateralAmount
+    ) external payable returns (uint loanId) {
         require(amountRequested > 0, "Amount must be greater than 0");
         require(fundingDeadline > block.timestamp, "Deadline must be in the future");
+        require(msg.value == collateralAmount, "Collateral mismatch");
+
         Loan memory L = Loan({
             borrower: msg.sender,
             amountRequested: amountRequested,
@@ -84,7 +83,9 @@ contract LoanMarket {
             totalRepayment: 0,
             investor: address(0),
             score: 0,
-            defaultTimestamp: 0
+            defaultTimestamp: 0,
+            collateralAmount: collateralAmount,
+            collateralClaimed: false
         });
         loans.push(L);
         loanId = loans.length - 1;
@@ -96,12 +97,11 @@ contract LoanMarket {
     }
 
     function fundLoan(uint loanId) external payable {
-        require(loanId < loans.length, "Invalid loan ID");
         Loan storage L = loans[loanId];
-        require(L.status == Status.Open, "Loan is not open for funding");
-        require(block.timestamp <= L.fundingDeadline, "Funding period has closed");
-        require(msg.value == L.amountRequested, "Must fund the full amount");
-        require(L.investor == address(0), "Loan has already been funded");
+        require(L.status == Status.Open, "Not open");
+        require(block.timestamp <= L.fundingDeadline, "Deadline passed");
+        require(msg.value == L.amountRequested, "Must fund full");
+        require(L.investor == address(0), "Already funded");
 
         L.amountFunded = msg.value;
         L.investor = msg.sender;
@@ -112,12 +112,12 @@ contract LoanMarket {
     }
 
     function withdrawAsBorrower(uint loanId) external nonReentrant {
-        require(loanId < loans.length, "Invalid loan ID");
         Loan storage L = loans[loanId];
-        require(L.borrower == msg.sender, "Only the borrower can withdraw");
-        require(L.status == Status.Funded, "Loan is not in funded state");
+        require(L.borrower == msg.sender, "Not borrower");
+        require(L.status == Status.Funded, "Not funded");
+        require(L.collateralAmount > 0, "Collateral required");
         uint amount = L.amountFunded;
-        require(amount > 0, "No amount to withdraw");
+        require(amount > 0, "No amount");
 
         L.status = Status.Active;
         (bool sent, ) = msg.sender.call{value: amount}("");
@@ -127,13 +127,12 @@ contract LoanMarket {
     }
 
     function checkDefault(uint loanId) public {
-        require(loanId < loans.length, "Invalid loan ID");
         Loan storage L = loans[loanId];
-        
-        if (L.status == Status.Active && 
+        if (
+            L.status == Status.Active && 
             block.timestamp > L.startTimestamp + L.durationSecs &&
-            L.defaultTimestamp == 0) {
-            
+            L.defaultTimestamp == 0
+        ) {
             L.status = Status.Defaulted;
             L.defaultTimestamp = block.timestamp;
             emit Defaulted(loanId, block.timestamp);
@@ -141,14 +140,10 @@ contract LoanMarket {
     }
 
     function repay(uint loanId) external payable nonReentrant {
-        require(loanId < loans.length, "Invalid loan ID");
         Loan storage L = loans[loanId];
-        require(L.borrower == msg.sender, "Only the borrower can repay");
-        
-        // ✅ MODIFICADO: Permite pagamento nos status Active ou Defaulted.
-        require(L.status == Status.Active || L.status == Status.Defaulted, "Loan is not in a repayable state");
+        require(L.borrower == msg.sender, "Not borrower");
+        require(L.status == Status.Active || L.status == Status.Defaulted, "Not repayable");
 
-        // Se estava em Default, ainda assim é verificado (mas não vai impedir o pagamento)
         if (L.status == Status.Active) {
             checkDefault(loanId);
         }
@@ -156,61 +151,46 @@ contract LoanMarket {
         uint principal = L.amountRequested;
         uint interest = (principal * L.interestBps) / 10000;
         uint owed = principal + interest;
-        require(msg.value >= owed, "Not enough ETH sent for repayment");
+        require(msg.value >= owed, "Not enough");
 
         L.totalRepayment = owed;
         L.status = Status.Repaid;
         withdrawableOf[loanId] = owed;
 
         if (msg.value > owed) {
-            uint refund = msg.value - owed;
-            (bool r, ) = msg.sender.call{value: refund}("");
+            (bool r, ) = msg.sender.call{value: msg.value - owed}("");
             require(r, "Refund failed");
         }
 
         emit RepaymentMade(loanId, owed);
     }
 
-    function cancelLoan(uint loanId) external {
-        require(loanId < loans.length, "Invalid loan ID");
-        Loan storage L = loans[loanId];
-        require(msg.sender == L.borrower, "Only the borrower can cancel");
-        require(L.status == Status.Open, "Only open loans can be cancelled");
-        require(block.timestamp <= L.fundingDeadline, "Funding period has already ended");
-        require(L.investor == address(0), "Cannot cancel a funded loan");
-
-        L.status = Status.Cancelled;
-        emit LoanCancelled(loanId, msg.sender);
-    }
-
     function withdrawInvestorShare(uint loanId) external nonReentrant {
-        require(loanId < loans.length, "Invalid loan ID");
         Loan storage L = loans[loanId];
-        require(msg.sender == L.investor, "Only the investor can withdraw");
+        require(msg.sender == L.investor, "Not investor");
         require(feeWallet != address(0), "Fee wallet not set");
 
         uint available = withdrawableOf[loanId];
-        require(available > 0, "Nothing to withdraw");
+        require(available > 0, "Nothing");
 
         uint principal = L.amountRequested;
-        
-        withdrawableOf[loanId] = 0; // Prevenção de re-entrância (checks-effects-interactions)
+        withdrawableOf[loanId] = 0;
 
         if (available > principal) {
             uint profit = available - principal;
-            uint platformFee = (profit * 10) / 100; // 10% de taxa sobre o lucro
+            uint platformFee = (profit * 10) / 100; 
             uint investorShare = available - platformFee;
 
-            (bool feeSent, ) = feeWallet.call{value: platformFee}("");
-            require(feeSent, "Fee transfer failed");
+            (bool f, ) = feeWallet.call{value: platformFee}("");
+            require(f, "Fee failed");
 
-            (bool investorShareSent, ) = msg.sender.call{value: investorShare}("");
-            require(investorShareSent, "Investor share transfer failed");
+            (bool s, ) = msg.sender.call{value: investorShare}("");
+            require(s, "Send failed");
             
             emit InvestorWithdraw(loanId, msg.sender, investorShare);
         } else {
-            (bool investorShareSent, ) = msg.sender.call{value: available}("");
-            require(investorShareSent, "Investor share transfer failed");
+            (bool s, ) = msg.sender.call{value: available}("");
+            require(s, "Send failed");
             emit InvestorWithdraw(loanId, msg.sender, available);
         }
     }
@@ -227,26 +207,6 @@ contract LoanMarket {
         emit ScoreLeft(loanId, msg.sender, score);
     }
 
-    function markAsDefault(uint loanId) external {
-        require(loanId < loans.length, "Invalid loan ID");
-        Loan storage L = loans[loanId];
-        require(msg.sender == L.investor, "Only the investor can mark as default");
-        require(L.status == Status.Active, "Loan is not active");
-        require(block.timestamp > L.startTimestamp + L.durationSecs, "Loan is not yet due");
-        require(L.defaultTimestamp == 0, "Loan is already defaulted");
-
-        L.status = Status.Defaulted;
-        L.defaultTimestamp = block.timestamp;
-        emit Defaulted(loanId, block.timestamp);
-    }
-
-    // --- Funções de Leitura (View) ---
-    function isLoanDefaulted(uint loanId) external view returns (bool) {
-        require(loanId < loans.length, "Invalid loan ID");
-        Loan storage L = loans[loanId];
-        return (L.status == Status.Defaulted) || (L.status == Status.Active && block.timestamp > L.startTimestamp + L.durationSecs);
-    }
-
     function averageScoreOfBorrower(address borrower) external view returns (uint avgTimes100) {
         uint sum = 0;
         uint count = 0;
@@ -260,6 +220,43 @@ contract LoanMarket {
         return (sum * 100) / count;
     }
 
+    function withdrawCollateral(uint loanId) external nonReentrant {
+        Loan storage L = loans[loanId];
+        require(msg.sender == L.borrower, "Not borrower");
+        require(L.status == Status.Repaid, "Not repaid");
+        require(!L.collateralClaimed, "Already claimed");
+        require(L.collateralAmount > 0, "No collateral");
+
+        L.collateralClaimed = true;
+        (bool ok, ) = L.borrower.call{value: L.collateralAmount}("");
+        require(ok, "Collateral transfer failed");
+
+        emit CollateralWithdrawn(loanId, L.borrower, L.collateralAmount);
+    }
+
+    function claimCollateral(uint loanId) external nonReentrant {
+        Loan storage L = loans[loanId];
+        require(msg.sender == L.investor, "Not investor");
+        require(L.status == Status.Defaulted, "Not defaulted");
+        require(!L.collateralClaimed, "Already claimed");
+        require(L.collateralAmount > 0, "No collateral");
+
+        L.collateralClaimed = true;
+
+        uint gross = L.collateralAmount;
+        uint fee = (gross * 10) / 100; 
+        uint net = gross - fee;
+
+        (bool f, ) = feeWallet.call{value: fee}("");
+        require(f, "Fee transfer failed");
+
+        (bool s, ) = L.investor.call{value: net}("");
+        require(s, "Investor transfer failed");
+
+        emit CollateralClaimed(loanId, L.investor, gross, fee, net);
+    }
+
+    // --- Views ---
     function getLoanCount() external view returns (uint) {
         return loans.length;
     }
