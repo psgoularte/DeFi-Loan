@@ -67,12 +67,13 @@ export function RequestLoanDialog({
     const deadline = BigInt(
       Math.floor(new Date().getTime() / 1000) + 30 * 24 * 60 * 60
     );
+    const collateral = parseEther(amount);
 
     writeContract({
       abi: LoanMarketABI,
       address: LOAN_MARKET_ADDRESS,
       functionName: "createLoan",
-      args: [amountInWei, interest, durationInSeconds, deadline],
+      args: [amountInWei, interest, durationInSeconds, deadline, collateral],
     });
   };
 
