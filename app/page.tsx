@@ -24,7 +24,7 @@ import { Star, TrendingUp, DollarSign, Users } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
   useReadContract,
-  useReadContracts, // Importação adicionada
+  useReadContracts,
   useWriteContract,
   useWaitForTransactionReceipt,
   useAccount,
@@ -123,7 +123,9 @@ function RequestLoanDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isConnected || !amount || !interestBps || !durationDays) return;
+    if (!isConnected || !amount || !interestBps || !durationDays) {
+      return;
+    }
     const amountInWei = parseEther(amount);
     const interest = BigInt(interestBps);
     const durationInSeconds = BigInt(Number(durationDays) * 24 * 60 * 60);
@@ -219,7 +221,7 @@ function RequestLoanDialog({
             <DialogFooter>
               <Button type="submit" disabled={isPending || isConfirming}>
                 {isPending
-                  ? "Waiting for signature..."
+                  ? "Waiting..."
                   : isConfirming
                   ? "Confirming..."
                   : "Submit Request"}
@@ -261,12 +263,6 @@ function LoanRequestCard({ request }: { request: Loan }) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
 
-  const isBorrower =
-    userAddress?.toLowerCase() === request.borrower.toLowerCase();
-  const isInvestor =
-    userAddress?.toLowerCase() === request.investor.toLowerCase();
-
-  // HOOK TO FETCH THE BORROWER'S AVERAGE SCORE
   const { data: averageScoreData } = useReadContract({
     abi: LoanMarketABI,
     address: LOAN_MARKET_ADDRESS,
@@ -274,19 +270,16 @@ function LoanRequestCard({ request }: { request: Loan }) {
     args: [request.borrower],
   });
 
-  // LOGIC TO DETERMINE WHICH SCORE TO DISPLAY
   const displayScore = useMemo(() => {
-    // If the loan has a final score, display it
-    if (request.score > 0) {
-      return request.score;
-    }
-    // Otherwise, display the calculated average score
-    if (averageScoreData) {
-      return Number(averageScoreData) / 100;
-    }
-    // Default to 0 while loading
+    if (request.score > 0) return request.score;
+    if (averageScoreData) return Number(averageScoreData) / 100;
     return 0;
   }, [request.score, averageScoreData]);
+
+  const isBorrower =
+    userAddress?.toLowerCase() === request.borrower.toLowerCase();
+  const isInvestor =
+    userAddress?.toLowerCase() === request.investor.toLowerCase();
 
   const { data: withdrawableAmount } = useReadContract({
     abi: LoanMarketABI,
@@ -348,7 +341,6 @@ function LoanRequestCard({ request }: { request: Loan }) {
   const isLoading = isPending || isConfirming;
 
   const renderActionButtons = () => {
-    // Borrower's view
     if (isBorrower) {
       if (request.status === 1)
         return (
@@ -361,7 +353,7 @@ function LoanRequestCard({ request }: { request: Loan }) {
             {isLoading ? "Withdrawing..." : "Withdraw Funds"}
           </Button>
         );
-      if (request.status === 2)
+      if (request.status === 2 || request.status === 4)
         return (
           <div className="text-center">
             <Button
@@ -386,7 +378,6 @@ function LoanRequestCard({ request }: { request: Loan }) {
       );
     }
 
-    // Investor's view
     if (isInvestor) {
       if (request.status === 3) {
         if (withdrawableAmount && withdrawableAmount > 0) {
@@ -434,7 +425,6 @@ function LoanRequestCard({ request }: { request: Loan }) {
           );
         }
       }
-
       if (request.status === 4 && request.score === 0) {
         return (
           <div className="space-y-3 text-center">
@@ -467,7 +457,6 @@ function LoanRequestCard({ request }: { request: Loan }) {
           </div>
         );
       }
-
       return (
         <Button className="w-full" size="lg" disabled>
           {STATUS_MAP[request.status]}
@@ -475,7 +464,6 @@ function LoanRequestCard({ request }: { request: Loan }) {
       );
     }
 
-    // Public view
     const isLoanOpenForInvestment = request.status === 0;
     return (
       <Button
@@ -511,8 +499,8 @@ function LoanRequestCard({ request }: { request: Loan }) {
             </p>
           </div>
           <Badge
-            variant="secondary"
-            className="bg-accent/10 text-accent-foreground"
+            variant="default"
+            className="bg-accent text-accent-foreground"
           >{`${Number(request.durationSecs) / (60 * 60 * 24)} days`}</Badge>
         </div>
       </CardHeader>
@@ -523,7 +511,6 @@ function LoanRequestCard({ request }: { request: Loan }) {
               <Star className="h-4 w-4 text-accent" />
               <span className="text-sm font-medium">Credit Score</span>
             </div>
-            {/* USE THE CORRECT SCORE VARIABLE */}
             <ScoreStars score={displayScore} />
           </div>
           <div className="space-y-2">
@@ -570,6 +557,8 @@ function LoanRequestCard({ request }: { request: Loan }) {
 // ============================================================================
 export default function InvestmentRequestsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const { data: loanCount, isLoading: isLoadingCount } = useReadContract({
     abi: LoanMarketABI,
@@ -610,7 +599,6 @@ export default function InvestmentRequestsPage() {
           number,
           bigint
         ];
-
         return {
           id: i,
           borrower: decoded[0],
@@ -630,6 +618,19 @@ export default function InvestmentRequestsPage() {
       setLoans(formattedLoans.reverse());
     }
   }, [loansData]);
+
+  // Pagination Logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentLoans = loans.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(loans.length / itemsPerPage);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+  const handlePrevPage = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
 
   const stats = useMemo(() => {
     if (!loans || loans.length === 0) {
@@ -674,9 +675,11 @@ export default function InvestmentRequestsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-primary-foreground" />
+                <span className="text-xl font-black text-primary-foreground">
+                  L
+                </span>
               </div>
-              <h1 className="text-xl font-bold">DeFi Lending</h1>
+              <h1 className="text-xl font-bold">LenDeFi</h1>
             </div>
             <nav className="hidden md:flex items-center gap-6">
               <RequestLoanDialog
@@ -696,13 +699,15 @@ export default function InvestmentRequestsPage() {
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-primary-foreground" />
+                <span className="text-2xl font-black text-primary-foreground">
+                  L
+                </span>
               </div>
-              <h1 className="text-3xl font-bold">DeFi Lending Platform</h1>
+              <h1 className="text-3xl font-bold">LenDeFi</h1>
             </div>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              Connect borrowers and investors through secure, transparent
-              blockchain technology.
+              Decentralized P2P lending powered by Smart Contracts. Connect
+              directly with investors and borrowers on the blockchain.
             </p>
           </div>
         </div>
@@ -728,8 +733,8 @@ export default function InvestmentRequestsPage() {
             </Card>
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <TrendingUp className="h-5 w-5 text-accent-foreground" />
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">
@@ -741,8 +746,8 @@ export default function InvestmentRequestsPage() {
             </Card>
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-secondary/10 rounded-lg">
-                  <DollarSign className="h-5 w-5 text-secondary-foreground" />
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <DollarSign className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Volume</p>
@@ -754,13 +759,13 @@ export default function InvestmentRequestsPage() {
         </div>
 
         {/* Loan Requests Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
           {isLoading ? (
             <p className="col-span-full text-center text-muted-foreground">
               Loading loans...
             </p>
-          ) : loans.length > 0 ? (
-            loans.map((request) => (
+          ) : currentLoans.length > 0 ? (
+            currentLoans.map((request) => (
               <LoanRequestCard key={request.id} request={request} />
             ))
           ) : (
@@ -770,8 +775,26 @@ export default function InvestmentRequestsPage() {
           )}
         </div>
 
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex justify-center items-center gap-4">
+            <Button onClick={handlePrevPage} disabled={currentPage === 1}>
+              Previous
+            </Button>
+            <span className="text-sm font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+
         {/* Call to Action */}
-        <div className="text-center">
+        <div className="text-center mt-12">
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="p-8">
               <h3 className="text-2xl font-bold mb-2">Need a Loan?</h3>
@@ -794,7 +817,7 @@ export default function InvestmentRequestsPage() {
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl font-bold text-center mb-12">
-              How Our Platform Works
+              How LenDeFi Works
             </h2>
             <div className="relative">
               <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-accent to-primary transform -translate-y-1/2"></div>
@@ -810,8 +833,9 @@ export default function InvestmentRequestsPage() {
                       Submit Request
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      Borrowers create loan requests with their blockchain
-                      address, desired amount, and purpose.
+                      Connect your wallet and create a loan request specifying
+                      the amount, interest, and duration. Your request becomes
+                      visible to investors.
                     </p>
                   </div>
                 </div>
@@ -823,11 +847,12 @@ export default function InvestmentRequestsPage() {
                   </div>
                   <div className="bg-background border-2 border-accent/20 rounded-lg p-6 shadow-sm">
                     <h3 className="text-xl font-semibold mb-3 text-accent">
-                      Verification
+                      Reputation Score
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      Smart contracts verify borrower credentials and
-                      transaction history. Credit scores (1-5) are calculated.
+                      The platform automatically analyzes your on-chain history
+                      to calculate an average Credit Score, giving investors a
+                      clear reputation metric.
                     </p>
                   </div>
                 </div>
@@ -839,11 +864,12 @@ export default function InvestmentRequestsPage() {
                   </div>
                   <div className="bg-background border-2 border-primary/20 rounded-lg p-6 shadow-sm">
                     <h3 className="text-xl font-semibold mb-3 text-primary">
-                      Investment
+                      Funding & Repayment
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      Investors browse verified requests, review credit scores
-                      and interest rates, then fund loans directly.
+                      Investors can fund the entire loan with one transaction.
+                      Borrowers can repay directly to the contract, even after
+                      the due date.
                     </p>
                   </div>
                 </div>
@@ -855,11 +881,12 @@ export default function InvestmentRequestsPage() {
                   </div>
                   <div className="bg-background border-2 border-accent/20 rounded-lg p-6 shadow-sm">
                     <h3 className="text-xl font-semibold mb-3 text-accent">
-                      Automated Returns
+                      Automated Payout
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      Smart contracts automatically handle repayments and
-                      interest distribution to investor wallets.
+                      After repayment, investors can withdraw their principal
+                      plus interest. The platform's 10% fee on profits is
+                      handled automatically by the smart contract.
                     </p>
                   </div>
                 </div>
@@ -873,8 +900,8 @@ export default function InvestmentRequestsPage() {
                   </div>
                   <h4 className="font-semibold mb-2">Higher Returns</h4>
                   <p className="text-sm text-muted-foreground">
-                    Earn 8-18% APY by cutting out traditional banking
-                    intermediaries
+                    Earn competitive returns by cutting out traditional banking
+                    intermediaries.
                   </p>
                 </CardContent>
               </Card>
@@ -885,8 +912,8 @@ export default function InvestmentRequestsPage() {
                   </div>
                   <h4 className="font-semibold mb-2">Full Transparency</h4>
                   <p className="text-sm text-muted-foreground">
-                    All transactions recorded on blockchain for complete audit
-                    trail
+                    All transactions are recorded on the blockchain for a
+                    complete and immutable audit trail.
                   </p>
                 </CardContent>
               </Card>
@@ -897,7 +924,8 @@ export default function InvestmentRequestsPage() {
                   </div>
                   <h4 className="font-semibold mb-2">Global Access</h4>
                   <p className="text-sm text-muted-foreground">
-                    Connect with borrowers and investors worldwide, 24/7
+                    Connect with borrowers and investors worldwide, 24/7,
+                    without geographical restrictions.
                   </p>
                 </CardContent>
               </Card>
@@ -913,9 +941,9 @@ export default function InvestmentRequestsPage() {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-6 w-6 rounded bg-primary flex items-center justify-center">
-                  <DollarSign className="h-4 w-4 text-primary-foreground" />
+                  <span className="font-bold text-primary-foreground">L</span>
                 </div>
-                <span className="font-bold">DeFi Lending</span>
+                <span className="font-bold">LenDeFi</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Secure, transparent, and decentralized lending platform built on
@@ -1011,7 +1039,7 @@ export default function InvestmentRequestsPage() {
             </div>
           </div>
           <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; 2024 DeFi Lending Platform. All rights reserved.</p>
+            <p>&copy; 2024 LenDeFi. All rights reserved.</p>
           </div>
         </div>
       </footer>

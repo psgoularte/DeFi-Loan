@@ -1,5 +1,5 @@
 // Arquivo gerado automaticamente - não edite manualmente
-// Data: 2025-08-23T03:02:41.402Z
+// Data: 2025-08-23T23:55:39.742Z
 
 export const LoanMarketABI = [
   {
@@ -263,6 +263,19 @@ export const LoanMarketABI = [
     type: "function",
   },
   {
+    inputs: [],
+    name: "feeWallet",
+    outputs: [
+      {
+        internalType: "address payable",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [
       {
         internalType: "uint256",
@@ -459,6 +472,19 @@ export const LoanMarketABI = [
   {
     inputs: [
       {
+        internalType: "address payable",
+        name: "_feeWallet",
+        type: "address",
+      },
+    ],
+    name: "setFeeWallet",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
         internalType: "uint256",
         name: "loanId",
         type: "uint256",
@@ -509,7 +535,7 @@ export const LoanMarketABI = [
 
 // ⚠️ ATUALIZE ESTE ENDEREÇO APÓS O DEPLOY
 export const LOAN_MARKET_ADDRESS =
-  "0x63613736bA48C3D81591369086E1C941900d32ab" as const;
+  "0xe8D93179d9a8F4171658DFED0253FF3541AF8460" as const;
 
 export const CONTRACTS = {
   LoanMarket: {

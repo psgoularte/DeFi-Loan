@@ -9,7 +9,7 @@
     "lint": "eslint",
     "compile": "npx hardhat compile",
     "node": "npx hardhat node",
-    "deploy": "npx hardhat run scripts/deploy.cjs --network localhost",
+    "deploy": "npx hardhat run scripts/deploy.cjs --network sepolia",
     "extract-abi": "node scripts/extract-abi.cjs"
   },
   "dependencies": {

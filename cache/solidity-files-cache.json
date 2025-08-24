@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\sgoul\\Documents\\Polichain\\DeFi-Credit\\contracts\\Loan.sol": {
-      "lastModificationDate": 1755917500837,
-      "contentHash": "60ccdb3d382e445a8fcfc6dfcdba599c",
+      "lastModificationDate": 1755991839530,
+      "contentHash": "86876d84ebe617032acbfc7eff3f1e24",
       "sourceName": "contracts/Loan.sol",
       "solcConfig": {
         "version": "0.8.19",
