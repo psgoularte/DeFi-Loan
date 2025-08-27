@@ -20,6 +20,7 @@ import {
 } from "@/cache/components/ui/dialog";
 import { Input } from "@/cache/components/ui/input";
 import { Label } from "@/cache/components/ui/label";
+import { Switch } from "@/cache/components/ui/switch";
 import {
   Star,
   TrendingUp,
@@ -54,7 +55,7 @@ const STATUS_MAP = [
   "Cancelled",
 ];
 
-// ✅ ATUALIZADO: Tipo Loan com novos campos de garantia
+// Tipo Loan com novos campos de garantia
 type Loan = {
   id: number;
   borrower: `0x${string}`;
@@ -76,7 +77,7 @@ type Loan = {
 // ============================================================================
 // HELPER COMPONENTS
 // ============================================================================
-// ✅ ATUALIZADO: ScoreStars agora recebe o número de empréstimos concluídos
+// ScoreStars agora recebe o número de empréstimos concluídos
 function ScoreStars({
   score,
   completedLoans,
@@ -137,7 +138,7 @@ function RequestLoanDialog({
   const [amount, setAmount] = useState("");
   const [interestBps, setInterestBps] = useState("");
   const [durationDays, setDurationDays] = useState("");
-  const [collateral, setCollateral] = useState(""); // Novo estado para garantia
+  const [collateral, setCollateral] = useState("");
   const { isConnected } = useAccount();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
@@ -369,6 +370,13 @@ function LoanRequestCard({
       args: [BigInt(request.id)],
       value: repaymentAmount,
     });
+  const handleCancel = () =>
+    writeContract({
+      abi: LoanMarketABI,
+      address: LOAN_MARKET_ADDRESS,
+      functionName: "cancelLoan",
+      args: [BigInt(request.id)],
+    });
   const handleLeaveScore = () => {
     if (rating === 0) {
       alert("Please select a score from 1 to 5.");
@@ -407,6 +415,18 @@ function LoanRequestCard({
 
   const renderActionButtons = () => {
     if (isBorrower) {
+      if (request.status === 0)
+        return (
+          <Button
+            className="w-full"
+            size="lg"
+            variant="default"
+            disabled={isLoading}
+            onClick={handleCancel}
+          >
+            {isLoading ? "Cancelling..." : "Cancel Loan"}
+          </Button>
+        );
       if (request.status === 1)
         return (
           <Button
@@ -588,7 +608,7 @@ function LoanRequestCard({
   };
 
   const loanEndDate = useMemo(() => {
-    if (request.status < 2) return null; // Only show date if loan is Active or finished
+    if (request.status < 1) return null; // Only show date if loan is Active or finished
     const endDate = new Date(
       (Number(request.startTimestamp) + Number(request.durationSecs)) * 1000
     );
@@ -622,7 +642,7 @@ function LoanRequestCard({
               {request.borrower.slice(0, 6)}...{request.borrower.slice(-4)}
             </p>
           </div>
-          <div>
+          <div className="flex flex-col items-end">
             <Badge
               variant="default"
               className="bg-accent text-accent-foreground"
@@ -724,8 +744,9 @@ function LoanRequestCard({
 export default function InvestmentRequestsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showMyLoansOnly, setShowMyLoansOnly] = useState(false);
   const itemsPerPage = 9;
-  const { isConnected } = useAccount();
+  const { isConnected, address: userAddress } = useAccount();
 
   const { data: loanCount, isLoading: isLoadingCount } = useReadContract({
     abi: LoanMarketABI,
@@ -791,7 +812,7 @@ export default function InvestmentRequestsPage() {
     }
   }, [loansData]);
 
-  // ✅ NOVO: Calcula o número de empréstimos concluídos para cada devedor
+  // Calcula o número de empréstimos concluídos para cada devedor
   const borrowerStats = useMemo(() => {
     const stats: { [key: string]: { completedLoans: number } } = {};
     loans.forEach((loan) => {
@@ -807,10 +828,28 @@ export default function InvestmentRequestsPage() {
     return stats;
   }, [loans]);
 
+  //Filtro de Paginação
+  const filteredLoans = useMemo(() => {
+    return (
+      loans
+        // 1. Oculta empréstimos cancelados
+        .filter((loan) => loan.status !== 5)
+        // 2. Aplica o filtro 'Meus Empréstimos' se estiver ativo
+        .filter((loan) => {
+          if (!showMyLoansOnly || !userAddress) return true;
+          const userAddr = userAddress.toLowerCase();
+          return (
+            loan.borrower.toLowerCase() === userAddr ||
+            loan.investor.toLowerCase() === userAddr
+          );
+        })
+    );
+  }, [loans, showMyLoansOnly, userAddress]);
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentLoans = loans.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(loans.length / itemsPerPage);
+  const currentLoans = filteredLoans.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredLoans.length / itemsPerPage);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
@@ -818,6 +857,11 @@ export default function InvestmentRequestsPage() {
   const handlePrevPage = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
   };
+
+  // Reseta a página para 1 quando o filtro muda
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [showMyLoansOnly]);
 
   const stats = useMemo(() => {
     if (!loans || loans.length === 0)
@@ -944,6 +988,19 @@ export default function InvestmentRequestsPage() {
               </CardContent>
             </Card>
           </div>
+          {/*Filtro 'Meus Empréstimos' */}
+          {isConnected && (
+            <div className="flex justify-end items-center mb-6">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="my-loans-filter"
+                  checked={showMyLoansOnly}
+                  onCheckedChange={setShowMyLoansOnly}
+                />
+                <Label htmlFor="my-loans-filter">Show My Loans Only</Label>
+              </div>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {!isConnected ? (
@@ -952,9 +1009,11 @@ export default function InvestmentRequestsPage() {
             <p className="col-span-full text-center text-muted-foreground">
               Loading loans...
             </p>
-          ) : loans.length === 0 ? (
+          ) : currentLoans.length === 0 ? (
             <p className="col-span-full text-center text-muted-foreground">
-              No loans found. Create the first one!
+              {showMyLoansOnly
+                ? "You are not involved in any loans."
+                : "No loans found. Create the first one!"}
             </p>
           ) : (
             currentLoans.map((request) => (

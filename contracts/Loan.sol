@@ -1,16 +1,16 @@
-// SPDX-License-Identifier: MIT 
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 contract LoanMarket {
     address public owner;
-    address payable public feeWallet = payable(0x0fadE5b267b572dc1F002d1b9148976cCCE9C8C8); 
-    
+    address payable public feeWallet = payable(0x0fadE5b267b572dc1F002d1b9148976cCCE9C8C8);
+
     uint private _status = 1; // Guarda de re-entrância
-    
+
     constructor() {
         owner = msg.sender;
     }
-    
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
         _;
@@ -32,8 +32,6 @@ contract LoanMarket {
     event ScoreLeft(uint indexed loanId, address indexed investor, uint8 score);
     event Defaulted(uint indexed loanId, uint defaultTimestamp);
     event LoanCancelled(uint indexed loanId, address indexed borrower);
-
-    // novos
     event CollateralWithdrawn(uint indexed loanId, address indexed borrower, uint amount);
     event CollateralClaimed(uint indexed loanId, address indexed investor, uint grossAmount, uint fee, uint netAmount);
 
@@ -87,6 +85,7 @@ contract LoanMarket {
             collateralAmount: collateralAmount,
             collateralClaimed: false
         });
+
         loans.push(L);
         loanId = loans.length - 1;
         emit LoanCreated(loanId, msg.sender, amountRequested);
@@ -106,8 +105,7 @@ contract LoanMarket {
         L.amountFunded = msg.value;
         L.investor = msg.sender;
         L.status = Status.Funded;
-        L.startTimestamp = block.timestamp;
-
+        L.startTimestamp = block.timestamp; // O contador começa aqui
         emit Funded(loanId, msg.sender, msg.value);
     }
 
@@ -115,7 +113,7 @@ contract LoanMarket {
         Loan storage L = loans[loanId];
         require(L.borrower == msg.sender, "Not borrower");
         require(L.status == Status.Funded, "Not funded");
-        require(L.collateralAmount > 0, "Collateral required");
+        
         uint amount = L.amountFunded;
         require(amount > 0, "No amount");
 
@@ -129,7 +127,7 @@ contract LoanMarket {
     function checkDefault(uint loanId) public {
         Loan storage L = loans[loanId];
         if (
-            L.status == Status.Active && 
+            L.status == Status.Active &&
             block.timestamp > L.startTimestamp + L.durationSecs &&
             L.defaultTimestamp == 0
         ) {
@@ -172,13 +170,12 @@ contract LoanMarket {
 
         uint available = withdrawableOf[loanId];
         require(available > 0, "Nothing");
-
         uint principal = L.amountRequested;
         withdrawableOf[loanId] = 0;
 
         if (available > principal) {
             uint profit = available - principal;
-            uint platformFee = (profit * 10) / 100; 
+            uint platformFee = (profit * 10) / 100;
             uint investorShare = available - platformFee;
 
             (bool f, ) = feeWallet.call{value: platformFee}("");
@@ -205,6 +202,21 @@ contract LoanMarket {
 
         L.score = score;
         emit ScoreLeft(loanId, msg.sender, score);
+    }
+
+    function cancelLoan(uint loanId) external nonReentrant {
+        Loan storage L = loans[loanId];
+        require(msg.sender == L.borrower, "Not borrower");
+        require(L.status == Status.Open, "Not open");
+
+        L.status = Status.Cancelled;
+
+        if (L.collateralAmount > 0) {
+            (bool ok, ) = L.borrower.call{value: L.collateralAmount}("");
+            require(ok, "Collateral refund failed");
+        }
+
+        emit LoanCancelled(loanId, L.borrower);
     }
 
     function averageScoreOfBorrower(address borrower) external view returns (uint avgTimes100) {
@@ -235,6 +247,8 @@ contract LoanMarket {
     }
 
     function claimCollateral(uint loanId) external nonReentrant {
+        checkDefault(loanId); 
+        
         Loan storage L = loans[loanId];
         require(msg.sender == L.investor, "Not investor");
         require(L.status == Status.Defaulted, "Not defaulted");
@@ -244,7 +258,7 @@ contract LoanMarket {
         L.collateralClaimed = true;
 
         uint gross = L.collateralAmount;
-        uint fee = (gross * 10) / 100; 
+        uint fee = (gross * 10) / 100;
         uint net = gross - fee;
 
         (bool f, ) = feeWallet.call{value: fee}("");

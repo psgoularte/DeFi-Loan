@@ -1,0 +1,4 @@
+-Botão de Collateral (verificar se o contrato funciona corretamente para esssa parte - conflito pagamento e colateral)
+-tempo iniciar quando o investidor enviar o dinheiro
+-opção de cancelar o loan se ainda estiver aberto
+-seletor para as loans que te envolvem
