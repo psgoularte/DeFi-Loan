@@ -1,4 +1,1 @@
--EStatísca de Taxa e loans ativos deve englobar loans no estado funded -
--função que cubra o cenário de não saque dos fundos  - 
--Associar o botão mudança de página com a conexão da carteira e mudar a cor do botão -
-- VOltar a cor do site para laranja -
+-API com IA para análise de risco;

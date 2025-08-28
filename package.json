@@ -27,7 +27,10 @@
     "react-dom": "18.3.1",
     "tailwind-merge": "^3.3.1",
     "viem": "^2.34.0",
-    "wagmi": "^2.16.4"
+    "wagmi": "^2.16.4",
+    "@azure-rest/ai-inference": "latest",
+    "@azure/core-auth": "latest",
+    "@azure/core-sse": "latest"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

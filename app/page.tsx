@@ -27,6 +27,7 @@ import {
   DollarSign,
   Users,
   ShieldCheck,
+  Sparkles,
   Info,
 } from "lucide-react"; // Icons
 import {
@@ -315,6 +316,10 @@ function LoanRequestCard({
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
 
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiError, setAiError] = useState("");
+
   const { data: averageScoreData } = useReadContract({
     abi: LoanMarketABI,
     address: LOAN_MARKET_ADDRESS,
@@ -346,6 +351,40 @@ function LoanRequestCard({
     const interest = (principal * request.interestBps) / BigInt(10000);
     return principal + interest;
   }, [request.amountRequested, request.interestBps]);
+
+  const handleAiAnalysis = async () => {
+    setIsAnalyzing(true);
+    setAiError("");
+    setAiAnalysis(null);
+
+    try {
+      const payload = {
+        address: request.borrower,
+        amount: formatUnits(request.amountRequested, 18),
+        interestBps: Number(request.interestBps),
+        durationDays: Number(request.durationSecs) / (60 * 60 * 24),
+        collateral: formatUnits(request.collateralAmount, 18),
+      };
+
+      const response = await fetch("/api/risk-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "A análise falhou. Tente novamente.");
+      }
+
+      const data = await response.json();
+      setAiAnalysis(data);
+    } catch (err: any) {
+      setAiError(err.message);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleInvest = () =>
     writeContract({
@@ -429,8 +468,9 @@ function LoanRequestCard({
   }, [request.status, request.startTimestamp, request.durationSecs]);
 
   const renderActionButtons = () => {
+    // Caso 1: O usuário é o TOMADOR do empréstimo
     if (isBorrower) {
-      if (request.status === 0)
+      if (request.status === 0) {
         return (
           <Button
             className="w-full"
@@ -442,7 +482,8 @@ function LoanRequestCard({
             {isLoading ? "Cancelling..." : "Cancel Loan"}
           </Button>
         );
-      if (request.status === 1)
+      }
+      if (request.status === 1) {
         return (
           <Button
             className="w-full"
@@ -453,7 +494,8 @@ function LoanRequestCard({
             {isLoading ? "Withdrawing..." : "Withdraw Funds"}
           </Button>
         );
-      if (request.status === 2 || request.status === 4)
+      }
+      if (request.status === 2 || request.status === 4) {
         return (
           <div className="text-center">
             <Button
@@ -466,11 +508,9 @@ function LoanRequestCard({
                 ? "Repaying..."
                 : `Repay Loan (${formatUnits(repaymentAmount, 18)} ETH)`}
             </Button>
-            <p className="text-xs text-muted-foreground mt-1">
-              Principal + Interest
-            </p>
           </div>
         );
+      }
       if (
         request.status === 3 &&
         request.collateralAmount > 0 &&
@@ -499,13 +539,14 @@ function LoanRequestCard({
       );
     }
 
+    // Caso 2: O usuário é o INVESTIDOR do empréstimo
     if (isInvestor) {
       if (request.status === 1 && isFundedAndExpired) {
         return (
           <Button
             className="w-full"
             size="lg"
-            variant="default"
+            variant="destructive"
             disabled={isLoading}
             onClick={handleCancelFundedLoan}
           >
@@ -514,8 +555,7 @@ function LoanRequestCard({
         );
       }
       if (request.status === 3) {
-        // Repaid
-        if (withdrawableAmount && withdrawableAmount > 0)
+        if (withdrawableAmount && withdrawableAmount > 0) {
           return (
             <Button
               className="w-full"
@@ -528,7 +568,8 @@ function LoanRequestCard({
                 : `Withdraw ${formatUnits(withdrawableAmount, 18)} ETH`}
             </Button>
           );
-        if (request.score === 0)
+        }
+        if (request.score === 0) {
           return (
             <div className="space-y-3 text-center">
               <p className="text-sm font-medium">Leave your feedback</p>
@@ -557,10 +598,10 @@ function LoanRequestCard({
               </Button>
             </div>
           );
+        }
       }
       if (request.status === 4) {
-        // Defaulted
-        if (request.collateralAmount > 0 && !request.collateralClaimed)
+        if (request.collateralAmount > 0 && !request.collateralClaimed) {
           return (
             <Button
               className="w-full"
@@ -577,7 +618,8 @@ function LoanRequestCard({
                   )} ETH Collateral`}
             </Button>
           );
-        if (request.score === 0)
+        }
+        if (request.score === 0) {
           return (
             <div className="space-y-3 text-center">
               <p className="text-sm font-medium text-destructive">
@@ -608,6 +650,7 @@ function LoanRequestCard({
               </Button>
             </div>
           );
+        }
       }
       return (
         <Button className="w-full" size="lg" disabled>
@@ -616,22 +659,61 @@ function LoanRequestCard({
       );
     }
 
+    // Caso 3: O usuário é um INVESTIDOR EM POTENCIAL
     const isLoanOpenForInvestment = request.status === 0;
     return (
-      <Button
-        className="w-full"
-        size="lg"
-        disabled={!isLoanOpenForInvestment || isLoading}
-        onClick={handleInvest}
-      >
-        {isLoading
-          ? isPending
-            ? "Signing..."
-            : "Confirming..."
-          : isLoanOpenForInvestment
-          ? "Invest Now"
-          : STATUS_MAP[request.status]}
-      </Button>
+      <div className="space-y-3">
+        {isLoanOpenForInvestment && (
+          <div className="space-y-2">
+            {!aiAnalysis && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleAiAnalysis}
+                disabled={isAnalyzing}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                {isAnalyzing ? "Analyzing..." : "Ananlyze Risk with AI"}
+              </Button>
+            )}
+            {isAnalyzing && (
+              <p className="text-xs text-center text-muted-foreground">
+                Searching data on-chain...
+              </p>
+            )}
+            {aiError && (
+              <p className="text-xs text-center text-red-500">{aiError}</p>
+            )}
+            {aiAnalysis && (
+              <div className="p-3 bg-card rounded-md border text-center">
+                <p className="text-sm font-bold">
+                  Risk Score:{" "}
+                  <span className="text-green-500">
+                    {aiAnalysis.riskScore}/100
+                  </span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {aiAnalysis.analysis}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={!isLoanOpenForInvestment || isLoading}
+          onClick={handleInvest}
+        >
+          {isLoading
+            ? isPending
+              ? "Signing..."
+              : "Confirming..."
+            : isLoanOpenForInvestment
+            ? "Invest Now"
+            : STATUS_MAP[request.status]}
+        </Button>
+      </div>
     );
   };
 
