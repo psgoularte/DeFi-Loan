@@ -270,6 +270,25 @@ contract LoanMarket {
         emit CollateralClaimed(loanId, L.investor, gross, fee, net);
     }
 
+    function cancelFundedLoan(uint loanId) external nonReentrant {
+        Loan storage L = loans[loanId];
+        require(msg.sender == L.investor, "Not investor");
+        require(L.status == Status.Funded, "Not funded");
+        require(block.timestamp > L.startTimestamp + L.durationSecs, "Loan has not expired yet");
+
+        L.status = Status.Cancelled;
+
+        (bool investorPaid, ) = L.investor.call{value: L.amountFunded}("");
+        require(investorPaid, "Investor refund failed");
+
+        if (L.collateralAmount > 0) {
+            (bool borrowerPaid, ) = L.borrower.call{value: L.collateralAmount}("");
+            require(borrowerPaid, "Collateral refund failed");
+        }
+
+        emit LoanCancelled(loanId, L.borrower);
+    }
+
     // --- Views ---
     function getLoanCount() external view returns (uint) {
         return loans.length;

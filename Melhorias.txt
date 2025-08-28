@@ -1,4 +1,4 @@
--Botão de Collateral (verificar se o contrato funciona corretamente para esssa parte - conflito pagamento e colateral)
--tempo iniciar quando o investidor enviar o dinheiro
--opção de cancelar o loan se ainda estiver aberto
--seletor para as loans que te envolvem
+-EStatísca de Taxa e loans ativos deve englobar loans no estado funded -
+-função que cubra o cenário de não saque dos fundos  - 
+-Associar o botão mudança de página com a conexão da carteira e mudar a cor do botão -
+- VOltar a cor do site para laranja -

@@ -377,6 +377,13 @@ function LoanRequestCard({
       functionName: "cancelLoan",
       args: [BigInt(request.id)],
     });
+  const handleCancelFundedLoan = () =>
+    writeContract({
+      abi: LoanMarketABI,
+      address: LOAN_MARKET_ADDRESS,
+      functionName: "cancelFundedLoan",
+      args: [BigInt(request.id)],
+    });
   const handleLeaveScore = () => {
     if (rating === 0) {
       alert("Please select a score from 1 to 5.");
@@ -412,6 +419,14 @@ function LoanRequestCard({
     });
 
   const isLoading = isPending || isConfirming;
+
+  const isFundedAndExpired = useMemo(() => {
+    if (request.status !== 1) return false; // Must be Funded
+    const expirationTimestamp =
+      Number(request.startTimestamp) + Number(request.durationSecs);
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    return currentTimestamp > expirationTimestamp;
+  }, [request.status, request.startTimestamp, request.durationSecs]);
 
   const renderActionButtons = () => {
     if (isBorrower) {
@@ -485,6 +500,19 @@ function LoanRequestCard({
     }
 
     if (isInvestor) {
+      if (request.status === 1 && isFundedAndExpired) {
+        return (
+          <Button
+            className="w-full"
+            size="lg"
+            variant="default"
+            disabled={isLoading}
+            onClick={handleCancelFundedLoan}
+          >
+            {isLoading ? "Cancelling..." : "Cancel & Reclaim Funds"}
+          </Button>
+        );
+      }
       if (request.status === 3) {
         // Repaid
         if (withdrawableAmount && withdrawableAmount > 0)
@@ -870,7 +898,9 @@ export default function InvestmentRequestsPage() {
         avgInterestRate: "0.0%",
         totalVolume: "0.00 ETH",
       };
-    const openLoans = loans.filter((loan) => loan.status === 0);
+    const openLoans = loans.filter(
+      (loan) => loan.status >= 0 && loan.status < 4
+    );
     const activeRequests = openLoans.length;
     let avgInterestRate = "0.0%";
     if (openLoans.length > 0) {
@@ -882,10 +912,10 @@ export default function InvestmentRequestsPage() {
         1
       )}%`;
     }
-    const fundedLoans = loans.filter(
+    const proccesLoans = loans.filter(
       (loan) => loan.status >= 1 && loan.status < 5
     );
-    const totalVolumeWei = fundedLoans.reduce(
+    const totalVolumeWei = proccesLoans.reduce(
       (acc, loan) => acc + loan.amountRequested,
       BigInt(0)
     );
@@ -949,45 +979,51 @@ export default function InvestmentRequestsPage() {
       </section>
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Active Requests
-                  </p>
-                  <p className="text-2xl font-bold">{stats.activeRequests}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Avg. Interest Rate
-                  </p>
-                  <p className="text-2xl font-bold">{stats.avgInterestRate}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <DollarSign className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Volume</p>
-                  <p className="text-2xl font-bold">{stats.totalVolume}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {isConnected && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <Card>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Active Requests
+                    </p>
+                    <p className="text-2xl font-bold">{stats.activeRequests}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Avg. Interest Rate
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {stats.avgInterestRate}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <DollarSign className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Total Volume
+                    </p>
+                    <p className="text-2xl font-bold">{stats.totalVolume}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           {/*Filtro 'Meus Empréstimos' */}
           {isConnected && (
             <div className="flex justify-end items-center mb-6">
@@ -1028,9 +1064,13 @@ export default function InvestmentRequestsPage() {
             ))
           )}
         </div>
-        {totalPages > 1 && (
+        {totalPages > 1 && isConnected && (
           <div className="mt-8 flex justify-center items-center gap-4">
-            <Button onClick={handlePrevPage} disabled={currentPage === 1}>
+            <Button
+              onClick={handlePrevPage}
+              disabled={currentPage === 1}
+              className="bg-transparent text-white hover:text-neutral-700 hover:bg-transparent"
+            >
               Previous
             </Button>
             <span className="text-sm font-medium">
@@ -1039,6 +1079,7 @@ export default function InvestmentRequestsPage() {
             <Button
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
+              className="bg-transparent text-white hover:text-neutral-700 hover:bg-transparent"
             >
               Next
             </Button>
@@ -1183,9 +1224,9 @@ export default function InvestmentRequestsPage() {
       </section>
       <footer className="border-t bg-card mt-16">
         <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="flex justify-center text-center">
             <div>
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center justify-center gap-2 mb-2">
                 <div className="h-6 w-6 rounded bg-primary flex items-center justify-center">
                   <span className="font-bold text-primary-foreground">L</span>
                 </div>
@@ -1196,97 +1237,13 @@ export default function InvestmentRequestsPage() {
                 blockchain technology.
               </p>
             </div>
-            <div>
-              <h4 className="font-semibold mb-3">Platform</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    How it Works
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Security
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Fees
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Support</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Help Center
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Contact Us
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Community
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Legal</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Privacy Policy
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Terms of Service
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Risk Disclosure
-                  </a>
-                </li>
-              </ul>
-            </div>
           </div>
-          <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; 2024 LenDeFi. All rights reserved.</p>
-          </div>
+          <a
+            href="https://github.com/psgoularte/DeFi-Loan"
+            className="flex justify-center mt-8 text-m text-white hover:text-muted-foreground"
+          >
+            Github Project
+          </a>
         </div>
       </footer>
     </div>

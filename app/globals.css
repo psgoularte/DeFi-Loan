@@ -4,62 +4,98 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Tema atualizado para preto e verde-limão */
-  --background: oklch(0.05 0 0); /* Fundo preto bem escuro */
-  --foreground: oklch(0.95 0 0); /* Texto branco */
-  --card: oklch(0.08 0 0); /* Preto um pouco mais claro para cards */
-  --card-foreground: oklch(0.95 0 0); /* Texto branco nos cards */
-  --popover: oklch(0.08 0 0); /* Fundo escuro para popover */
-  --popover-foreground: oklch(0.95 0 0); /* Texto branco no popover */
-  /* Cor primária verde-limão (#d2ff00) */
-  --primary: oklch(0.94 0.29 110); /* Verde-limão primário */
-  --primary-foreground: oklch(
-    0.05 0 0
-  ); /* Texto preto no primário para contraste */
-  --secondary: oklch(0.15 0 0); /* Cinza escuro secundário */
-  --secondary-foreground: oklch(0.95 0 0); /* Texto branco no secundário */
-  --muted: oklch(0.12 0 0); /* Cinza escuro para fundos suaves */
-  --muted-foreground: oklch(0.6 0 0); /* Cinza para texto suave */
-  /* Cor de destaque verde-limão */
-  --accent: oklch(0.94 0.29 110); /* Verde-limão para destaques */
-  --accent-foreground: oklch(0.05 0 0); /* Texto preto no destaque */
-  --destructive: oklch(0.55 0.22 25); /* Vermelho para erros */
-  --destructive-foreground: oklch(0.95 0 0); /* Texto branco no destrutivo */
-  --border: oklch(0.2 0 0); /* Bordas cinza escuro */
-  --input: oklch(0.12 0 0); /* Fundos de input escuros */
-  /* Anéis de foco em verde-limão */
-  --ring: oklch(0.94 0.29 110 / 0.5); /* Anel de foco verde-limão */
-  --chart-1: oklch(0.55 0.22 25); /* Cor vermelha para gráfico */
-  --chart-2: oklch(0.6 0.15 200); /* Cor azul para gráfico */
-  /* Cor verde-limão para gráfico */
-  --chart-3: oklch(0.94 0.29 110); /* Verde-limão para gráfico */
-  --chart-4: oklch(0.5 0 0); /* Cor cinza para gráfico */
-  --chart-5: oklch(0.7 0.15 120); /* Cor verde para gráfico */
-  --radius: 0.5rem; /* Cantos arredondados */
-  --sidebar: oklch(0.08 0 0); /* Sidebar escura */
-  --sidebar-foreground: oklch(0.95 0 0); /* Texto branco na sidebar */
-  --sidebar-primary: oklch(0.12 0 0); /* Cinza escuro primário na sidebar */
-  /* Texto primário da sidebar em verde-limão */
-  --sidebar-primary-foreground: oklch(0.94 0.29 110);
-  /* Destaque da sidebar em verde-limão */
-  --sidebar-accent: oklch(0.94 0.29 110);
-  --sidebar-accent-foreground: oklch(
-    0.05 0 0
-  ); /* Texto preto no destaque da sidebar */
-  --sidebar-border: oklch(0.2 0 0); /* Bordas cinza escuro na sidebar */
-  /* Anel de foco da sidebar em verde-limão */
-  --sidebar-ring: oklch(0.94 0.29 110 / 0.5);
+  /* Updated to black and orange theme with brighter orange */
+  --background: oklch(0.05 0 0); /* Very dark black background */
+  --foreground: oklch(0.95 0 0); /* White text */
+  --card: oklch(0.08 0 0); /* Slightly lighter black for cards */
+  --card-foreground: oklch(0.95 0 0); /* White text on cards */
+  --popover: oklch(0.08 0 0); /* Dark popover background */
+  --popover-foreground: oklch(0.95 0 0); /* White popover text */
+  /* Brightened orange primary color for better visibility */
+  --primary: oklch(0.75 0.22 45); /* Brighter orange primary color */
+  --primary-foreground: oklch(0.05 0 0); /* Black text on primary */
+  --secondary: oklch(0.15 0 0); /* Dark gray secondary */
+  --secondary-foreground: oklch(0.95 0 0); /* White text on secondary */
+  --muted: oklch(0.12 0 0); /* Dark gray for muted backgrounds */
+  --muted-foreground: oklch(0.6 0 0); /* Gray for muted text */
+  /* Brightened orange accent color for better icon visibility */
+  --accent: oklch(0.75 0.22 45); /* Brighter orange for highlights */
+  --accent-foreground: oklch(0.05 0 0); /* Black text on accent */
+  --destructive: oklch(0.55 0.22 25); /* Red for errors */
+  --destructive-foreground: oklch(0.95 0 0); /* White text on destructive */
+  --border: oklch(0.2 0 0); /* Dark gray borders */
+  --input: oklch(0.12 0 0); /* Dark input backgrounds */
+  /* Brightened orange focus rings */
+  --ring: oklch(0.75 0.22 45 / 0.5); /* Brighter orange focus rings */
+  --chart-1: oklch(0.55 0.22 25); /* Red chart color */
+  --chart-2: oklch(0.6 0.15 200); /* Blue chart color */
+  /* Brightened orange chart color */
+  --chart-3: oklch(0.75 0.22 45); /* Brighter orange chart color */
+  --chart-4: oklch(0.5 0 0); /* Gray chart color */
+  --chart-5: oklch(0.7 0.15 120); /* Green chart color */
+  --radius: 0.5rem; /* Rounded corners */
+  --sidebar: oklch(0.08 0 0); /* Dark sidebar */
+  --sidebar-foreground: oklch(0.95 0 0); /* White sidebar text */
+  --sidebar-primary: oklch(0.12 0 0); /* Dark gray sidebar primary */
+  /* Brightened orange sidebar primary text */
+  --sidebar-primary-foreground: oklch(
+    0.75 0.22 45
+  ); /* Brighter orange sidebar primary text */
+  /* Brightened orange sidebar accent */
+  --sidebar-accent: oklch(0.75 0.22 45); /* Brighter orange sidebar accent */
+  --sidebar-accent-foreground: oklch(0.05 0 0); /* Black sidebar accent text */
+  --sidebar-border: oklch(0.2 0 0); /* Dark gray sidebar borders */
+  /* Brightened orange sidebar focus rings */
+  --sidebar-ring: oklch(
+    0.75 0.22 45 / 0.5
+  ); /* Brighter orange sidebar focus rings */
 }
 
 .dark {
-  /* Sobrescreve variáveis específicas para o modo escuro */
-  --sidebar: oklch(0.05 0 0); /* Sidebar mais escura */
-  --chart-1: oklch(0.6 0.25 25); /* Vermelho mais brilhante para gráficos */
-  --chart-2: oklch(0.7 0.18 200); /* Azul mais brilhante para gráficos */
-  --chart-3: oklch(
-    0.95 0.3 110
-  ); /* Verde-limão um pouco mais brilhante para gráficos */
-  --chart-4: oklch(0.65 0 0); /* Cinza mais claro para gráficos */
+  /* Dark mode uses same black and orange theme with brighter orange */
+  --background: oklch(0.05 0 0); /* Very dark black background */
+  --foreground: oklch(0.95 0 0); /* White text */
+  --card: oklch(0.08 0 0); /* Slightly lighter black for cards */
+  --card-foreground: oklch(0.95 0 0); /* White text on cards */
+  --popover: oklch(0.08 0 0); /* Dark popover background */
+  --popover-foreground: oklch(0.95 0 0); /* White popover text */
+  /* Brightened orange primary color for dark mode */
+  --primary: oklch(0.75 0.22 45); /* Brighter orange primary color */
+  --primary-foreground: oklch(0.05 0 0); /* Black text on primary */
+  --secondary: oklch(0.15 0 0); /* Dark gray secondary */
+  --secondary-foreground: oklch(0.95 0 0); /* White text on secondary */
+  --muted: oklch(0.12 0 0); /* Dark gray muted */
+  --muted-foreground: oklch(0.6 0 0); /* Gray muted text */
+  /* Brightened orange accent for dark mode */
+  --accent: oklch(0.75 0.22 45); /* Brighter orange accent */
+  --accent-foreground: oklch(0.05 0 0); /* Black text on accent */
+  --destructive: oklch(0.55 0.22 25); /* Red for errors */
+  --destructive-foreground: oklch(0.95 0 0); /* White destructive text */
+  --border: oklch(0.2 0 0); /* Dark gray borders */
+  --input: oklch(0.12 0 0); /* Dark gray inputs */
+  /* Brightened orange focus rings for dark mode */
+  --ring: oklch(0.75 0.22 45 / 0.5); /* Brighter orange focus rings */
+  --chart-1: oklch(0.6 0.25 25); /* Brighter red for charts */
+  --chart-2: oklch(0.7 0.18 200); /* Brighter blue for charts */
+  /* Brightened orange for charts in dark mode */
+  --chart-3: oklch(0.75 0.22 45); /* Brighter orange for charts */
+  --chart-4: oklch(0.65 0 0); /* Lighter gray for charts */
+  --chart-5: oklch(0.7 0.15 120); /* Brighter green for charts */
+  --sidebar: oklch(0.05 0 0); /* Darker sidebar */
+  --sidebar-foreground: oklch(0.95 0 0); /* White sidebar text */
+  --sidebar-primary: oklch(0.12 0 0); /* Dark gray sidebar primary */
+  /* Brightened orange sidebar primary text for dark mode */
+  --sidebar-primary-foreground: oklch(
+    0.75 0.22 45
+  ); /* Brighter orange sidebar primary text */
+  /* Brightened orange sidebar accent for dark mode */
+  --sidebar-accent: oklch(0.75 0.22 45); /* Brighter orange sidebar accent */
+  --sidebar-accent-foreground: oklch(0.05 0 0); /* Black sidebar accent text */
+  --sidebar-border: oklch(0.2 0 0); /* Dark gray sidebar borders */
+  /* Brightened orange sidebar focus rings for dark mode */
+  --sidebar-ring: oklch(
+    0.75 0.22 45 / 0.5
+  ); /* Brighter orange sidebar focus rings */
 }
 
 @theme inline {
@@ -108,4 +144,8 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+html {
+  scroll-behavior: smooth;
 }
