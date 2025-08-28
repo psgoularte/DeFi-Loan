@@ -29,13 +29,13 @@ import {
   ShieldCheck,
   Sparkles,
   Info,
-} from "lucide-react"; // Icons
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/cache/components/ui/tooltip"; // Tooltip for info
+} from "@/cache/components/ui/tooltip";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
   useReadContract,
@@ -56,7 +56,11 @@ const STATUS_MAP = [
   "Cancelled",
 ];
 
-// Tipo Loan com novos campos de garantia
+type AiAnalysisResult = {
+  riskScore: number;
+  analysis: string;
+};
+
 type Loan = {
   id: number;
   borrower: `0x${string}`;
@@ -78,7 +82,6 @@ type Loan = {
 // ============================================================================
 // HELPER COMPONENTS
 // ============================================================================
-// ScoreStars agora recebe o número de empréstimos concluídos
 function ScoreStars({
   score,
   completedLoans,
@@ -317,7 +320,7 @@ function LoanRequestCard({
   const [hoverRating, setHoverRating] = useState(0);
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
   const [aiError, setAiError] = useState("");
 
   const { data: averageScoreData } = useReadContract({
@@ -379,8 +382,12 @@ function LoanRequestCard({
 
       const data = await response.json();
       setAiAnalysis(data);
-    } catch (err: any) {
-      setAiError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setAiError(err.message);
+      } else {
+        setAiError("Ocorreu um erro desconhecido.");
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -460,7 +467,7 @@ function LoanRequestCard({
   const isLoading = isPending || isConfirming;
 
   const isFundedAndExpired = useMemo(() => {
-    if (request.status !== 1) return false; // Must be Funded
+    if (request.status !== 1) return false;
     const expirationTimestamp =
       Number(request.startTimestamp) + Number(request.durationSecs);
     const currentTimestamp = Math.floor(Date.now() / 1000);
@@ -718,7 +725,7 @@ function LoanRequestCard({
   };
 
   const loanEndDate = useMemo(() => {
-    if (request.status < 1) return null; // Only show date if loan is Active or finished
+    if (request.status < 1) return null;
     const endDate = new Date(
       (Number(request.startTimestamp) + Number(request.durationSecs)) * 1000
     );
@@ -931,7 +938,6 @@ export default function InvestmentRequestsPage() {
         stats[borrowerAddress] = { completedLoans: 0 };
       }
       if (loan.status === 3 || loan.status === 4) {
-        // Repaid or Defaulted
         stats[borrowerAddress].completedLoans += 1;
       }
     });
@@ -1106,7 +1112,6 @@ export default function InvestmentRequestsPage() {
               </Card>
             </div>
           )}
-          {/*Filtro 'Meus Empréstimos' */}
           {isConnected && (
             <div className="flex justify-end items-center mb-6">
               <div className="flex items-center space-x-2">

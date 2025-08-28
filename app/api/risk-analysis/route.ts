@@ -10,7 +10,12 @@ const endpoint = "https://models.github.ai/inference/chat/completions";
 const model = "deepseek/DeepSeek-V3-0324";
 // -----------------------------------------
 
-// Função para buscar dados on-chain reais...
+interface AiResponse {
+  riskScore: number;
+  analysis: string;
+}
+
+// Função para buscar dados on-chain
 async function getOnChainData(address: string) {
   if (!etherscanApiKey) {
     throw new Error(
@@ -86,7 +91,6 @@ export async function POST(request: Request) {
 
     const onChainData = await getOnChainData(address);
 
-    // ✅ PROMPT AINDA MAIS REFORÇADO
     const prompt = `
       Analise o risco de um empréstimo P2P para um investidor.
 
@@ -146,9 +150,7 @@ export async function POST(request: Request) {
     const aiResponse = await response.json();
     const content = aiResponse.choices[0].message.content;
 
-    // ✅ LÓGICA ROBUSTA PARA EXTRAIR O JSON DA RESPOSTA
     try {
-      // Encontra o primeiro '{' e o último '}' para extrair o objeto JSON da string
       const jsonStart = content.indexOf("{");
       const jsonEnd = content.lastIndexOf("}");
 
@@ -157,21 +159,22 @@ export async function POST(request: Request) {
       }
 
       const jsonString = content.substring(jsonStart, jsonEnd + 1);
-      const parsedContent = JSON.parse(jsonString);
+      const parsedContent: AiResponse = JSON.parse(jsonString);
 
       return NextResponse.json(parsedContent);
-    } catch (parseError) {
+    } catch (_parseError) {
       console.error(
         "DEBUG: Resposta completa da IA que falhou no parse:",
         content
       );
       throw new Error("A resposta da IA não estava no formato JSON esperado.");
     }
-  } catch (error: any) {
-    console.error("Erro na rota /api/analyze-borrower:", error);
-    return NextResponse.json(
-      { error: error.message || "Falha ao processar a análise." },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    let errorMessage = "Falha ao processar a análise.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    console.error("Erro na rota /api/risk-analysis:", error);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
