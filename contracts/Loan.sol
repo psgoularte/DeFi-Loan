@@ -32,6 +32,7 @@ contract LoanMarket {
     event ScoreLeft(uint indexed loanId, address indexed investor, uint8 score);
     event Defaulted(uint indexed loanId, uint defaultTimestamp);
     event LoanCancelled(uint indexed loanId, address indexed borrower);
+    event FundedLoanCancelled(uint indexed loanId, address indexed investor);
     event CollateralWithdrawn(uint indexed loanId, address indexed borrower, uint amount);
     event CollateralClaimed(uint indexed loanId, address indexed investor, uint gross, uint fee, uint net);
 
@@ -214,6 +215,25 @@ contract LoanMarket {
         }
         emit LoanCancelled(loanId, L.borrower);
     }
+
+    function cancelFundedLoan(uint loanId) external nonReentrant {
+    Loan storage L = loans[loanId];
+    require(msg.sender == L.investor, "Only the investor can cancel a funded loan");
+    require(L.status == Status.Funded, "Loan is not in Funded state");
+    require(block.timestamp > L.fundingDeadline, "Funding deadline has not passed yet");
+
+    L.status = Status.Cancelled;
+
+    (bool investorPaid, ) = L.investor.call{value: L.amountFunded}("");
+    require(investorPaid, "Investor refund failed");
+
+    if (L.collateralAmount > 0) {
+        (bool borrowerPaid, ) = L.borrower.call{value: L.collateralAmount}("");
+        require(borrowerPaid, "Collateral refund failed");
+    }
+    
+    emit FundedLoanCancelled(loanId, L.investor);
+}
     
     function checkDefault(uint loanId) public {
         Loan storage L = loans[loanId];

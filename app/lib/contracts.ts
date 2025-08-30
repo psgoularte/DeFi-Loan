@@ -1,5 +1,5 @@
 // Arquivo gerado automaticamente - não edite manualmente
-// Data: 2025-08-30T03:53:14.057Z
+// Data: 2025-08-30T06:08:58.305Z
 
 export const LoanMarketABI = [
   {
@@ -111,6 +111,25 @@ export const LoanMarketABI = [
       },
     ],
     name: "Funded",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "loanId",
+        type: "uint256",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "investor",
+        type: "address",
+      },
+    ],
+    name: "FundedLoanCancelled",
     type: "event",
   },
   {
@@ -300,6 +319,19 @@ export const LoanMarketABI = [
       },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "loanId",
+        type: "uint256",
+      },
+    ],
+    name: "cancelFundedLoan",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -563,7 +595,7 @@ export const LoanMarketABI = [
 
 // ⚠️ ATUALIZE ESTE ENDEREÇO APÓS O DEPLOY
 export const LOAN_MARKET_ADDRESS =
-  "0x5bA9bc96A686db972ED848cD894023b6BAf15fC2" as const;
+  "0xdF2ddAf7AB4B2443D924955F686Ed781a97Ae861" as const;
 
 export const CONTRACTS = {
   LoanMarket: {

@@ -474,6 +474,13 @@ function LoanRequestCard({
       functionName: "cancelLoan",
       args: [BigInt(request.id)],
     });
+  const handleCancelFundedLoan = () =>
+    writeContract({
+      abi: LoanMarketABI,
+      address: LOAN_MARKET_ADDRESS,
+      functionName: "cancelFundedLoan",
+      args: [BigInt(request.id)],
+    });
   const handleWithdrawInvestorShare = (score: number) =>
     writeContract({
       abi: LoanMarketABI,
@@ -547,21 +554,30 @@ function LoanRequestCard({
 
     // Investor's view
     if (isInvestor) {
-      if (request.status === 2 && isRepaymentDue) {
-        // Active but overdue
+      const isFundedAndExpired = useMemo(() => {
+        if (request.status !== 1) return false; // Status must be 'Funded'
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        return currentTimestamp > Number(request.fundingDeadline);
+      }, [request.status, request.fundingDeadline]);
+
+      if (isFundedAndExpired) {
         return (
-          <InvestorActionWithScore
-            title="Loan Overdue"
-            description="Trigger default to claim collateral and leave your feedback."
-            buttonText="Trigger Default & Claim Collateral"
-            loadingText="Triggering..."
-            action={handleClaimCollateral}
-            isLoading={isLoading}
-          />
+          <Button
+            className="w-full"
+            size="lg"
+            variant="destructive"
+            disabled={isLoading}
+            onClick={handleCancelFundedLoan} // Certifique-se que esta função existe
+          >
+            {isLoading
+              ? "Reclaiming..."
+              : "Reclaim Funds (Borrower didn't withdraw)"}
+          </Button>
         );
       }
+
       if (request.status === 3 && request.score === 0) {
-        // Repaid
+        // Repaid and not yet scored
         return (
           <InvestorActionWithScore
             title="Loan Repaid"
@@ -573,8 +589,9 @@ function LoanRequestCard({
           />
         );
       }
-      if (request.status === 4) {
-        // Defaulted
+
+      if (request.status === 4 && request.score === 0) {
+        // Defaulted and not yet scored
         return (
           <InvestorActionWithScore
             title="Borrower Defaulted"
@@ -589,6 +606,22 @@ function LoanRequestCard({
           />
         );
       }
+
+      if (request.status === 2 && isRepaymentDue) {
+        // Active but overdue
+        return (
+          <InvestorActionWithScore
+            title="Loan Overdue"
+            description="Trigger default to claim collateral and leave your feedback."
+            buttonText="Trigger Default & Claim Collateral"
+            loadingText="Triggering..."
+            action={handleClaimCollateral}
+            isLoading={isLoading}
+          />
+        );
+      }
+
+      // If none of the above actions are available, just show the status
       return (
         <Button className="w-full" size="lg" disabled>
           {STATUS_MAP[request.status]}
