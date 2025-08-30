@@ -149,14 +149,16 @@ export async function POST(request: Request) {
       });
 
       return NextResponse.json(parsedContent);
-    } catch (parseError) {
+    } catch (_parseError) {
       console.error("DEBUG: Resposta da IA que falhou no parse:", content);
       throw new Error("A resposta da IA não estava no formato JSON esperado.");
     }
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Falha ao processar." },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    let errorMessage = "Falha ao processar a análise.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    console.error("Erro na rota /api/risk-analysis:", error);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
