@@ -1,5 +1,5 @@
 // Arquivo gerado automaticamente - não edite manualmente
-// Data: 2025-08-30T01:19:10.327Z
+// Data: 2025-08-30T03:53:14.057Z
 
 export const LoanMarketABI = [
   {
@@ -25,7 +25,7 @@ export const LoanMarketABI = [
       {
         indexed: false,
         internalType: "uint256",
-        name: "grossAmount",
+        name: "gross",
         type: "uint256",
       },
       {
@@ -37,7 +37,7 @@ export const LoanMarketABI = [
       {
         indexed: false,
         internalType: "uint256",
-        name: "netAmount",
+        name: "net",
         type: "uint256",
       },
     ],
@@ -257,7 +257,7 @@ export const LoanMarketABI = [
     outputs: [
       {
         internalType: "uint256",
-        name: "avgTimes100",
+        name: "",
         type: "uint256",
       },
     ],
@@ -267,14 +267,39 @@ export const LoanMarketABI = [
   {
     inputs: [
       {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    name: "borrowerLoanCount",
+    outputs: [
+      {
         internalType: "uint256",
-        name: "loanId",
+        name: "",
         type: "uint256",
       },
     ],
-    name: "cancelFundedLoan",
-    outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    name: "borrowerScoreSum",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -310,6 +335,11 @@ export const LoanMarketABI = [
         name: "loanId",
         type: "uint256",
       },
+      {
+        internalType: "uint8",
+        name: "score",
+        type: "uint8",
+      },
     ],
     name: "claimCollateral",
     outputs: [],
@@ -320,38 +350,32 @@ export const LoanMarketABI = [
     inputs: [
       {
         internalType: "uint256",
-        name: "amountRequested",
+        name: "_amountRequested",
         type: "uint256",
       },
       {
         internalType: "uint256",
-        name: "interestBps",
+        name: "_interestBps",
         type: "uint256",
       },
       {
         internalType: "uint256",
-        name: "durationSecs",
+        name: "_durationSecs",
         type: "uint256",
       },
       {
         internalType: "uint256",
-        name: "fundingDeadline",
+        name: "_fundingDeadline",
         type: "uint256",
       },
       {
         internalType: "uint256",
-        name: "collateralAmount",
+        name: "_collateralAmount",
         type: "uint256",
       },
     ],
     name: "createLoan",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "loanId",
-        type: "uint256",
-      },
-    ],
+    outputs: [],
     stateMutability: "payable",
     type: "function",
   },
@@ -392,24 +416,6 @@ export const LoanMarketABI = [
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "loanId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint8",
-        name: "score",
-        type: "uint8",
-      },
-    ],
-    name: "leaveScore",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -542,18 +548,10 @@ export const LoanMarketABI = [
         name: "loanId",
         type: "uint256",
       },
-    ],
-    name: "withdrawCollateral",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
       {
-        internalType: "uint256",
-        name: "loanId",
-        type: "uint256",
+        internalType: "uint8",
+        name: "score",
+        type: "uint8",
       },
     ],
     name: "withdrawInvestorShare",
@@ -561,34 +559,11 @@ export const LoanMarketABI = [
     stateMutability: "nonpayable",
     type: "function",
   },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    name: "withdrawableOf",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    stateMutability: "payable",
-    type: "receive",
-  },
 ] as const;
 
 // ⚠️ ATUALIZE ESTE ENDEREÇO APÓS O DEPLOY
 export const LOAN_MARKET_ADDRESS =
-  "0xd36fCa1591C7b95f582eE5f55cB297C353F3Bb33" as const;
+  "0x5bA9bc96A686db972ED848cD894023b6BAf15fC2" as const;
 
 export const CONTRACTS = {
   LoanMarket: {

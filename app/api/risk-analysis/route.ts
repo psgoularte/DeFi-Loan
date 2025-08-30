@@ -18,11 +18,11 @@ const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL || "",
   token: process.env.UPSTASH_REDIS_REST_TOKEN || "",
 });
-const CACHE_DURATION_SECONDS = 30 * 60; // 30 minutos
+const CACHE_DURATION_SECONDS = 30 * 60; // 30 minutes
 
 if (!githubToken || !infuraUrl || !process.env.UPSTASH_REDIS_REST_URL) {
   console.error(
-    "ERRO CRÍTICO: Uma ou mais variáveis de ambiente (GITHUB_TOKEN, INFURA_HTTPS_URL, UPSTASH_REDIS_*) não foram definidas."
+    "CRITICAL ERROR: One or more environment variables (GITHUB_TOKEN, INFURA_HTTPS_URL, UPSTASH_REDIS_*) were not defined."
   );
 }
 
@@ -43,7 +43,7 @@ async function getOnChainData(address: `0x${string}`) {
       ethBalance: parseFloat(ethBalance),
     };
   } catch (error) {
-    console.error(`Falha ao buscar dados para ${address} via Infura:`, error);
+    console.error(`Failed to fetch data for ${address} via Infura:`, error);
     return { transactionCount: 0, ethBalance: 0 };
   }
 }
@@ -51,7 +51,7 @@ async function getOnChainData(address: `0x${string}`) {
 export async function POST(request: Request) {
   if (!githubToken || !infuraUrl || !process.env.UPSTASH_REDIS_REST_URL) {
     return NextResponse.json(
-      { error: "Configuração do servidor incompleta." },
+      { error: "Server configuration is incomplete." },
       { status: 500 }
     );
   }
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
     if (!borrowerAddress) {
       return NextResponse.json(
-        { error: "Endereço da carteira é obrigatório." },
+        { error: "Wallet address is required." },
         { status: 400 }
       );
     }
@@ -78,30 +78,31 @@ export async function POST(request: Request) {
 
     const cachedEntry = await redis.get<AiAnalysisResult>(cacheKey);
     if (cachedEntry) {
-      console.log("Servindo resposta do cache para a chave:", cacheKey);
+      console.log("Serving response from cache for key:", cacheKey);
       return NextResponse.json(cachedEntry);
     }
+    console.log("Cache miss. Fetching new data for key:", cacheKey);
 
     const onChainData = await getOnChainData(borrowerAddress);
 
     const prompt = `
-      Analise o risco de um empréstimo P2P. Responda ESTRITAMENTE e APENAS com um objeto JSON válido.
+      Analyze the risk of a P2P loan. Respond STRICTLY and ONLY with a valid JSON object.
 
-      **Dados do Tomador:**
-      - Empréstimos concluídos na plataforma: ${completedLoans}
-      - Total de transações da carteira: ${onChainData.transactionCount}
-      - Saldo de ETH: ${onChainData.ethBalance} ETH
+      **Borrower Data:**
+      - Completed loans on the platform: ${completedLoans}
+      - Total wallet transactions: ${onChainData.transactionCount}
+      - Current ETH balance: ${onChainData.ethBalance} ETH
       
-      **Termos do Empréstimo:**
-      - Valor: ${amount} ETH
-      - Juros: ${interestBps / 100}%
-      - Duração: ${durationDays} dias
-      - Colateral: ${collateral} ETH
+      **Loan Terms:**
+      - Amount: ${amount} ETH
+      - Interest: ${interestBps / 100}%
+      - Duration: ${durationDays} days
+      - Collateral: ${collateral} ETH
 
-      **Formato JSON Obrigatório:**
+      **Required JSON Format:**
       {
-        "riskScore": um número de 0 a 100 (100 = menor risco),
-        "analysis": "Uma análise curta em uma frase EM INGLÊS."
+        "riskScore": a number from 0 to 100 (100 = lowest risk),
+        "analysis": "A short, one-sentence analysis."
       }
     `;
 
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            "Você é um assistente especialista em análise de risco DeFi que responde apenas com JSON.",
+            "You are a DeFi risk analysis expert assistant that responds only with JSON.",
         },
         { role: "user", content: prompt },
       ],
@@ -130,8 +131,8 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Erro da API do GitHub AI:", errorText);
-      throw new Error(`Erro na API de IA: ${response.status} - ${errorText}`);
+      console.error("Error from GitHub AI API:", errorText);
+      throw new Error(`AI API Error: ${response.status} - ${errorText}`);
     }
 
     const aiResponse = await response.json();
@@ -141,7 +142,7 @@ export async function POST(request: Request) {
       const jsonStart = content.indexOf("{");
       const jsonEnd = content.lastIndexOf("}");
       if (jsonStart === -1 || jsonEnd === -1) {
-        throw new Error("JSON não encontrado na resposta da IA.");
+        throw new Error("JSON not found in AI response.");
       }
       const jsonString = content.substring(jsonStart, jsonEnd + 1);
       const parsedContent: AiAnalysisResult = JSON.parse(jsonString);
@@ -150,15 +151,15 @@ export async function POST(request: Request) {
 
       return NextResponse.json(parsedContent);
     } catch {
-      console.error("DEBUG: Resposta da IA que falhou no parse:", content);
-      throw new Error("A resposta da IA não estava no formato JSON esperado.");
+      console.error("DEBUG: AI response failed to parse:", content);
+      throw new Error("The AI response was not in the expected JSON format.");
     }
   } catch (error: unknown) {
-    let errorMessage = "Falha ao processar a análise.";
+    let errorMessage = "Failed to process the analysis.";
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    console.error("Erro na rota /api/risk-analysis:", error);
+    console.error("Error in /api/risk-analysis route:", error);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
