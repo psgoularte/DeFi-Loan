@@ -567,7 +567,7 @@ function LoanRequestCard({
             size="lg"
             variant="destructive"
             disabled={isLoading}
-            onClick={handleCancelFundedLoan} // Certifique-se que esta função existe
+            onClick={handleCancelFundedLoan}
           >
             {isLoading
               ? "Reclaiming..."
