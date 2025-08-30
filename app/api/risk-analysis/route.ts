@@ -149,7 +149,7 @@ export async function POST(request: Request) {
       });
 
       return NextResponse.json(parsedContent);
-    } catch (_parseError) {
+    } catch {
       console.error("DEBUG: Resposta da IA que falhou no parse:", content);
       throw new Error("A resposta da IA não estava no formato JSON esperado.");
     }
