@@ -3,6 +3,11 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { sepolia } from "viem/chains";
 import { Redis } from "@upstash/redis";
 
+type AiAnalysisResult = {
+  riskScore: number;
+  analysis: string;
+};
+
 const githubToken = process.env.GITHUB_TOKEN;
 const infuraUrl = process.env.SEPOLIA_URL;
 
@@ -70,15 +75,12 @@ export async function POST(request: Request) {
     }
 
     const cacheKey = `analysis:github:${address}-${amount}-${interestBps}-${durationDays}-${collateral}`;
-    const cachedEntry = await redis.get<any>(cacheKey);
+
+    const cachedEntry = await redis.get<AiAnalysisResult>(cacheKey);
     if (cachedEntry) {
       console.log("Servindo resposta do cache para a chave:", cacheKey);
       return NextResponse.json(cachedEntry);
     }
-    console.log(
-      "Cache não encontrado. Buscando novos dados para a chave:",
-      cacheKey
-    );
 
     const onChainData = await getOnChainData(borrowerAddress);
 
@@ -142,11 +144,9 @@ export async function POST(request: Request) {
         throw new Error("JSON não encontrado na resposta da IA.");
       }
       const jsonString = content.substring(jsonStart, jsonEnd + 1);
-      const parsedContent = JSON.parse(jsonString);
+      const parsedContent: AiAnalysisResult = JSON.parse(jsonString);
 
-      await redis.set(cacheKey, JSON.stringify(parsedContent), {
-        ex: CACHE_DURATION_SECONDS,
-      });
+      await redis.set(cacheKey, parsedContent, { ex: CACHE_DURATION_SECONDS });
 
       return NextResponse.json(parsedContent);
     } catch {
