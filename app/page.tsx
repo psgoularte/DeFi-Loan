@@ -560,7 +560,7 @@ function LoanRequestCard({
           />
         );
       }
-      if (request.status === 3) {
+      if (request.status === 3 && request.score === 0) {
         // Repaid
         return (
           <InvestorActionWithScore
@@ -689,7 +689,7 @@ function LoanRequestCard({
             </p>
             {(isBorrower || isInvestor) && (
               <Badge
-                variant={isBorrower ? "default" : "secondary"}
+                variant={isBorrower ? "default" : "default"}
                 className="mt-2"
               >
                 {isBorrower ? "Your Loan" : "You are the Investor"}
