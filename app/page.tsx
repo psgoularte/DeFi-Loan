@@ -1200,7 +1200,7 @@ export default function InvestmentRequestsPage() {
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
                       Investors can use an AI-powered tool to analyze the
-                      borrower's on-chain history, receiving a risk score to
+                      borrowers on-chain history, receiving a risk score to
                       inform their decision.
                     </p>
                   </div>
