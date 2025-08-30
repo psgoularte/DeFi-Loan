@@ -365,6 +365,13 @@ function LoanRequestCard({
     }
   }, [isSuccess, onAction]);
 
+  const isFundedAndExpired = useMemo(() => {
+    if (request.status !== 1) return false; // Status must be 'Funded'
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    // The original funding deadline is used as the window for the borrower to withdraw
+    return currentTimestamp > Number(request.fundingDeadline);
+  }, [request.status, request.fundingDeadline]);
+
   const isRepaymentDue = useMemo(() => {
     if (request.status !== 2) return false;
 
@@ -554,12 +561,6 @@ function LoanRequestCard({
 
     // Investor's view
     if (isInvestor) {
-      const isFundedAndExpired = useMemo(() => {
-        if (request.status !== 1) return false; // Status must be 'Funded'
-        const currentTimestamp = Math.floor(Date.now() / 1000);
-        return currentTimestamp > Number(request.fundingDeadline);
-      }, [request.status, request.fundingDeadline]);
-
       if (isFundedAndExpired) {
         return (
           <Button
@@ -621,14 +622,12 @@ function LoanRequestCard({
         );
       }
 
-      // If none of the above actions are available, just show the status
       return (
         <Button className="w-full" size="lg" disabled>
           {STATUS_MAP[request.status]}
         </Button>
       );
     }
-
     // Public view (potential investor)
     return (
       <div className="space-y-3">
