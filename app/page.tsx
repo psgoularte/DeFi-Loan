@@ -861,7 +861,22 @@ export default function InvestmentRequestsPage() {
       const formattedLoans = loansData
         .filter((res) => res.status === "success")
         .map((result, i) => {
-          const loanData = result.result as any;
+          const loanData = result.result as unknown as [
+            `0x${string}`, // borrower
+            bigint, // amountRequested
+            bigint, // amountFunded
+            bigint, // interestBps
+            bigint, // durationSecs
+            bigint, // fundingDeadline
+            number, // status
+            bigint, // startTimestamp
+            bigint, // totalRepayment
+            `0x${string}`, // investor
+            number, // score
+            bigint, // defaultTimestamp
+            bigint, // collateralAmount
+            boolean // collateralClaimed
+          ];
           return {
             id: i,
             borrower: loanData[0],
