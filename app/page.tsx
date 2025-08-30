@@ -108,6 +108,7 @@ function ScoreStars({
         <span className="text-sm font-medium leading-tight">
           {displayScore > 0 ? displayScore.toFixed(1) : "N/A"}
         </span>
+        {/* Lógica para exibir o texto correto */}
         {isFinalScore ? (
           <span className="text-xs text-accent leading-tight">Final score</span>
         ) : (
@@ -122,66 +123,28 @@ function ScoreStars({
   );
 }
 
-// Componente para o investidor deixar a avaliação e sacar
-function InvestorActionWithScore({
-  title,
-  description,
-  buttonText,
-  loadingText,
-  action,
-  isLoading,
-}: {
-  title: string;
-  description: string;
-  buttonText: string;
-  loadingText: string;
-  action: (score: number) => void;
-  isLoading: boolean;
-}) {
-  const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
-
-  return (
-    <div className="space-y-3 text-center">
-      <p className="text-sm font-medium">{title}</p>
-      <p className="text-xs text-muted-foreground">{description}</p>
-      <div className="flex items-center justify-center gap-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`h-6 w-6 cursor-pointer transition-colors ${
-              (hoverRating || rating) >= star
-                ? "fill-accent text-accent"
-                : "text-muted-foreground"
-            }`}
-            onMouseEnter={() => setHoverRating(star)}
-            onMouseLeave={() => setHoverRating(0)}
-            onClick={() => setRating(star)}
-          />
-        ))}
-      </div>
-      <Button
-        className="w-full"
-        size="lg"
-        disabled={isLoading || rating === 0}
-        onClick={() => action(rating)}
-      >
-        {isLoading ? loadingText : buttonText}
-      </Button>
-    </div>
-  );
-}
-
 // ============================================================================
 // LOAN REQUEST MODAL COMPONENT
 // ============================================================================
+interface RequestLoanDialogProps {
+  triggerButtonText: string;
+  triggerButtonVariant?:
+    | "outline"
+    | "default"
+    | "destructive"
+    | "secondary"
+    | "ghost"
+    | "link"
+    | null;
+  triggerButtonSize?: "default" | "sm" | "lg" | "icon" | null;
+  triggerButtonClassName?: string;
+}
 function RequestLoanDialog({
-  onLoanCreated,
-  trigger,
-}: {
-  onLoanCreated: () => void;
-  trigger: React.ReactNode;
-}) {
+  triggerButtonText,
+  triggerButtonVariant = "outline",
+  triggerButtonSize = "lg",
+  triggerButtonClassName = "",
+}: RequestLoanDialogProps) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [interestBps, setInterestBps] = useState("");
@@ -222,7 +185,6 @@ function RequestLoanDialog({
 
   useEffect(() => {
     if (isSuccess && open) {
-      onLoanCreated();
       const timer = setTimeout(() => {
         setOpen(false);
         setAmount("");
@@ -232,11 +194,19 @@ function RequestLoanDialog({
       }, 2500);
       return () => clearTimeout(timer);
     }
-  }, [isSuccess, open, onLoanCreated]);
+  }, [isSuccess, open]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogTrigger asChild>
+        <Button
+          variant={triggerButtonVariant}
+          size={triggerButtonSize}
+          className={triggerButtonClassName}
+        >
+          {triggerButtonText}
+        </Button>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Request a New Loan</DialogTitle>
@@ -316,7 +286,7 @@ function RequestLoanDialog({
             </DialogFooter>
             {isSuccess && (
               <p className="text-sm text-green-600 mt-2 text-center">
-                ✅ Loan request created! Refreshing list...
+                ✅ Loan request created!
               </p>
             )}
             {error && (
@@ -343,11 +313,9 @@ function RequestLoanDialog({
 function LoanRequestCard({
   request,
   completedLoans,
-  onAction,
 }: {
   request: Loan;
   completedLoans: number;
-  onAction: () => void;
 }) {
   const { address: userAddress } = useAccount();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
@@ -355,22 +323,12 @@ function LoanRequestCard({
     hash,
   });
 
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
   const [aiError, setAiError] = useState("");
-
-  useEffect(() => {
-    if (isSuccess) {
-      onAction();
-    }
-  }, [isSuccess, onAction]);
-
-  const isFundedAndExpired = useMemo(() => {
-    if (request.status !== 1) return false; // Status must be 'Funded'
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    // The original funding deadline is used as the window for the borrower to withdraw
-    return currentTimestamp > Number(request.fundingDeadline);
-  }, [request.status, request.fundingDeadline]);
 
   const isRepaymentDue = useMemo(() => {
     if (request.status !== 2) return false;
@@ -381,12 +339,6 @@ function LoanRequestCard({
 
     return currentTimestamp > repaymentDeadline;
   }, [request.status, request.startTimestamp, request.durationSecs]);
-
-  const isLoanOpenForInvestment = useMemo(() => {
-    if (request.status !== 0) return false;
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    return currentTimestamp < Number(request.fundingDeadline);
-  }, [request.status, request.fundingDeadline]);
 
   const { data: averageScoreData } = useReadContract({
     abi: LoanMarketABI,
@@ -405,6 +357,14 @@ function LoanRequestCard({
     userAddress?.toLowerCase() === request.borrower.toLowerCase();
   const isInvestor =
     userAddress?.toLowerCase() === request.investor.toLowerCase();
+
+  const { data: withdrawableAmount } = useReadContract({
+    abi: LoanMarketABI,
+    address: LOAN_MARKET_ADDRESS,
+    functionName: "withdrawableOf",
+    args: [BigInt(request.id)],
+    query: { enabled: isInvestor && request.status === 3 },
+  });
 
   const repaymentAmount = useMemo(() => {
     const principal = request.amountRequested;
@@ -435,7 +395,7 @@ function LoanRequestCard({
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || "Analysis failed. Please try again.");
+        throw new Error(errData.error || "A análise falhou. Tente novamente.");
       }
 
       const data = await response.json();
@@ -444,7 +404,7 @@ function LoanRequestCard({
       if (err instanceof Error) {
         setAiError(err.message);
       } else {
-        setAiError("An unknown error occurred.");
+        setAiError("Ocorreu um erro desconhecido.");
       }
     } finally {
       setIsAnalyzing(false);
@@ -488,28 +448,54 @@ function LoanRequestCard({
       functionName: "cancelFundedLoan",
       args: [BigInt(request.id)],
     });
-  const handleWithdrawInvestorShare = (score: number) =>
+  const handleLeaveScore = () => {
+    if (rating === 0) {
+      alert("Please select a score from 1 to 5.");
+      return;
+    }
+    writeContract({
+      abi: LoanMarketABI,
+      address: LOAN_MARKET_ADDRESS,
+      functionName: "leaveScore",
+      args: [BigInt(request.id), rating],
+    });
+  };
+  const handleWithdrawInvestorShare = () =>
     writeContract({
       abi: LoanMarketABI,
       address: LOAN_MARKET_ADDRESS,
       functionName: "withdrawInvestorShare",
-      args: [BigInt(request.id), score],
+      args: [BigInt(request.id)],
     });
-  const handleClaimCollateral = (score: number) =>
+  const handleWithdrawCollateral = () =>
+    writeContract({
+      abi: LoanMarketABI,
+      address: LOAN_MARKET_ADDRESS,
+      functionName: "withdrawCollateral",
+      args: [BigInt(request.id)],
+    });
+  const handleClaimCollateral = () =>
     writeContract({
       abi: LoanMarketABI,
       address: LOAN_MARKET_ADDRESS,
       functionName: "claimCollateral",
-      args: [BigInt(request.id), score],
+      args: [BigInt(request.id)],
     });
 
   const isLoading = isPending || isConfirming;
 
+  const isFundedAndExpired = useMemo(() => {
+    if (request.status !== 1) return false;
+    const expirationTimestamp =
+      Number(request.startTimestamp) + Number(request.durationSecs);
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    return currentTimestamp > expirationTimestamp;
+  }, [request.status, request.startTimestamp, request.durationSecs]);
+
   const renderActionButtons = () => {
-    // Borrower's view
+    // Caso 1: O usuário é o TOMADOR do empréstimo
     if (isBorrower) {
       if (request.status === 0) {
-        // Open
         return (
           <Button
             className="w-full"
@@ -523,7 +509,6 @@ function LoanRequestCard({
         );
       }
       if (request.status === 1) {
-        // Funded
         return (
           <Button
             className="w-full"
@@ -536,22 +521,42 @@ function LoanRequestCard({
         );
       }
       if (request.status === 2) {
-        // Active
+        return (
+          <div className="text-center">
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={isLoading}
+              onClick={handleRepay}
+            >
+              {isLoading
+                ? "Repaying..."
+                : `Repay Loan (${formatUnits(repaymentAmount, 18)} ETH)`}
+            </Button>
+          </div>
+        );
+      }
+      if (
+        request.status === 3 &&
+        request.collateralAmount > 0 &&
+        !request.collateralClaimed
+      ) {
         return (
           <Button
             className="w-full"
             size="lg"
             disabled={isLoading}
-            onClick={handleRepay}
+            onClick={handleWithdrawCollateral}
           >
             {isLoading
-              ? "Repaying..."
-              : `Repay Loan (${formatUnits(repaymentAmount, 18)} ETH)`}
+              ? "Returning..."
+              : `Withdraw ${formatUnits(
+                  request.collateralAmount,
+                  18
+                )} ETH Collateral`}
           </Button>
         );
       }
-      // For Repaid (3) or Defaulted (4) loans, there are no more actions for the borrower.
-      // Collateral is handled automatically by the contract.
       return (
         <Button className="w-full" size="lg" disabled>
           {STATUS_MAP[request.status]}
@@ -559,9 +564,9 @@ function LoanRequestCard({
       );
     }
 
-    // Investor's view
+    // Caso 2: O usuário é o INVESTIDOR do empréstimo
     if (isInvestor) {
-      if (isFundedAndExpired) {
+      if (request.status === 1 && isFundedAndExpired) {
         return (
           <Button
             className="w-full"
@@ -570,65 +575,132 @@ function LoanRequestCard({
             disabled={isLoading}
             onClick={handleCancelFundedLoan}
           >
-            {isLoading
-              ? "Reclaiming..."
-              : "Reclaim Funds (Borrower didn't withdraw)"}
+            {isLoading ? "Cancelling..." : "Cancel & Reclaim Funds"}
           </Button>
         );
       }
-
-      if (request.status === 3 && request.score === 0) {
-        // Repaid and not yet scored
-        return (
-          <InvestorActionWithScore
-            title="Loan Repaid"
-            description="Withdraw your funds and leave a final score for the borrower."
-            buttonText="Withdraw & Submit Score"
-            loadingText="Withdrawing..."
-            action={handleWithdrawInvestorShare}
-            isLoading={isLoading}
-          />
-        );
-      }
-
-      if (request.status === 4 && request.score === 0) {
-        // Defaulted and not yet scored
-        return (
-          <InvestorActionWithScore
-            title="Borrower Defaulted"
-            description="Claim the collateral and leave a final score."
-            buttonText={`Claim ${formatUnits(
-              request.collateralAmount,
-              18
-            )} ETH & Submit Score`}
-            loadingText="Claiming..."
-            action={handleClaimCollateral}
-            isLoading={isLoading}
-          />
-        );
-      }
-
       if (request.status === 2 && isRepaymentDue) {
-        // Active but overdue
-        return (
-          <InvestorActionWithScore
-            title="Loan Overdue"
-            description="Trigger default to claim collateral and leave your feedback."
-            buttonText="Trigger Default & Claim Collateral"
-            loadingText="Triggering..."
-            action={handleClaimCollateral}
-            isLoading={isLoading}
-          />
-        );
+        if (request.collateralAmount > 0) {
+          return (
+            <Button
+              className="w-full"
+              size="lg"
+              variant="default"
+              disabled={isLoading}
+              onClick={handleClaimCollateral}
+            >
+              {isLoading ? "Claimming..." : "Claim Collateral"}
+            </Button>
+          );
+        }
       }
-
+      if (request.status === 3) {
+        if (withdrawableAmount && withdrawableAmount > 0) {
+          return (
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={isLoading}
+              onClick={handleWithdrawInvestorShare}
+            >
+              {isLoading
+                ? "Withdrawing..."
+                : `Withdraw ${formatUnits(withdrawableAmount, 18)} ETH`}
+            </Button>
+          );
+        }
+        if (request.score === 0) {
+          return (
+            <div className="space-y-3 text-center">
+              <p className="text-sm font-medium">Leave your feedback</p>
+              <div className="flex items-center justify-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`h-6 w-6 cursor-pointer transition-colors ${
+                      (hoverRating || rating) >= star
+                        ? "fill-accent text-accent"
+                        : "text-muted-foreground"
+                    }`}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setRating(star)}
+                  />
+                ))}
+              </div>
+              <Button
+                className="w-full"
+                size="lg"
+                disabled={isLoading || rating === 0}
+                onClick={handleLeaveScore}
+              >
+                {isLoading ? "Submitting..." : "Submit Score"}
+              </Button>
+            </div>
+          );
+        }
+      }
+      if (request.status === 4) {
+        if (request.collateralAmount > 0 && !request.collateralClaimed) {
+          return (
+            <Button
+              className="w-full"
+              size="lg"
+              variant="destructive"
+              disabled={isLoading}
+              onClick={handleClaimCollateral}
+            >
+              {isLoading
+                ? "Claiming..."
+                : `Claim ${formatUnits(
+                    request.collateralAmount,
+                    18
+                  )} ETH Collateral`}
+            </Button>
+          );
+        }
+        if (request.score === 0) {
+          return (
+            <div className="space-y-3 text-center">
+              <p className="text-sm font-medium text-white">
+                Borrower defaulted. Leave your feedback
+              </p>
+              <div className="flex items-center justify-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`h-6 w-6 cursor-pointer transition-colors ${
+                      (hoverRating || rating) >= star
+                        ? "fill-accent text-accent"
+                        : "text-muted-foreground"
+                    }`}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setRating(star)}
+                  />
+                ))}
+              </div>
+              <Button
+                className="w-full"
+                size="lg"
+                disabled={isLoading || rating === 0}
+                onClick={handleLeaveScore}
+              >
+                {isLoading ? "Submitting..." : "Submit Score"}
+              </Button>
+            </div>
+          );
+        }
+      }
       return (
         <Button className="w-full" size="lg" disabled>
           {STATUS_MAP[request.status]}
         </Button>
       );
     }
-    // Public view (potential investor)
+
+    // Caso 3: O usuário é um INVESTIDOR EM POTENCIAL
+    const isLoanOpenForInvestment = request.status === 0;
     return (
       <div className="space-y-3">
         {isLoanOpenForInvestment && (
@@ -641,7 +713,7 @@ function LoanRequestCard({
                 disabled={isAnalyzing}
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                {isAnalyzing ? "Analyzing..." : "Analyze Risk with AI"}
+                {isAnalyzing ? "Analyzing..." : "Ananlyze Risk with AI"}
               </Button>
             )}
             {isAnalyzing && (
@@ -843,14 +915,11 @@ export default function InvestmentRequestsPage() {
   const itemsPerPage = 9;
   const { isConnected, address: userAddress } = useAccount();
 
-  const {
-    data: loanCount,
-    isLoading: isLoadingCount,
-    refetch: refetchLoanCount,
-  } = useReadContract({
+  const { data: loanCount, isLoading: isLoadingCount } = useReadContract({
     abi: LoanMarketABI,
     address: LOAN_MARKET_ADDRESS,
     functionName: "getLoanCount",
+    query: { enabled: isConnected },
   });
 
   const loanContracts = useMemo(() => {
@@ -864,73 +933,53 @@ export default function InvestmentRequestsPage() {
     }));
   }, [loanCount]);
 
-  const {
-    data: loansData,
-    isLoading: isLoadingLoansData,
-    refetch: refetchLoansData,
-  } = useReadContracts({
+  const { data: loansData, isLoading: isLoadingLoansData } = useReadContracts({
     contracts: loanContracts,
     query: { enabled: isConnected && loanContracts.length > 0 },
   });
 
-  const handleAction = () => {
-    // This function forces a refresh of the loan data after a transaction
-    setTimeout(() => {
-      refetchLoanCount();
-      refetchLoansData();
-    }, 1000); // Small delay to allow blockchain to update
-  };
-
-  const handleLoanCreated = () => {
-    // Force a recount and refetch when a new loan is created
-    setTimeout(() => {
-      refetchLoanCount();
-    }, 1000);
-  };
-
   useEffect(() => {
     if (loansData) {
-      const formattedLoans = loansData
-        .filter((res) => res.status === "success")
-        .map((result, i) => {
-          const loanData = result.result as unknown as [
-            `0x${string}`, // borrower
-            bigint, // amountRequested
-            bigint, // amountFunded
-            bigint, // interestBps
-            bigint, // durationSecs
-            bigint, // fundingDeadline
-            number, // status
-            bigint, // startTimestamp
-            bigint, // totalRepayment
-            `0x${string}`, // investor
-            number, // score
-            bigint, // defaultTimestamp
-            bigint, // collateralAmount
-            boolean // collateralClaimed
-          ];
-          return {
-            id: i,
-            borrower: loanData[0],
-            amountRequested: loanData[1],
-            amountFunded: loanData[2],
-            interestBps: loanData[3],
-            durationSecs: loanData[4],
-            fundingDeadline: loanData[5],
-            status: loanData[6],
-            startTimestamp: loanData[7],
-            totalRepayment: loanData[8],
-            investor: loanData[9],
-            score: loanData[10],
-            defaultTimestamp: loanData[11],
-            collateralAmount: loanData[12],
-            collateralClaimed: loanData[13],
-          };
-        });
+      const formattedLoans = loansData.map((result, i) => {
+        const decoded = result.result as unknown as [
+          `0x${string}`,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          number,
+          bigint,
+          bigint,
+          `0x${string}`,
+          number,
+          bigint,
+          bigint,
+          boolean
+        ];
+        return {
+          id: i,
+          borrower: decoded[0],
+          amountRequested: decoded[1],
+          amountFunded: decoded[2],
+          interestBps: decoded[3],
+          durationSecs: decoded[4],
+          fundingDeadline: decoded[5],
+          status: decoded[6],
+          startTimestamp: decoded[7],
+          totalRepayment: decoded[8],
+          investor: decoded[9],
+          score: decoded[10],
+          defaultTimestamp: decoded[11],
+          collateralAmount: decoded[12],
+          collateralClaimed: decoded[13],
+        };
+      });
       setLoans(formattedLoans.reverse());
     }
   }, [loansData]);
 
+  // Calcula o número de empréstimos concluídos para cada devedor
   const borrowerStats = useMemo(() => {
     const stats: { [key: string]: { completedLoans: number } } = {};
     loans.forEach((loan) => {
@@ -945,17 +994,22 @@ export default function InvestmentRequestsPage() {
     return stats;
   }, [loans]);
 
+  //Filtro de Paginação
   const filteredLoans = useMemo(() => {
-    return loans
-      .filter((loan) => loan.status !== 5) // Filter out Cancelled loans
-      .filter((loan) => {
-        if (!showMyLoansOnly || !userAddress) return true;
-        const userAddr = userAddress.toLowerCase();
-        return (
-          loan.borrower.toLowerCase() === userAddr ||
-          loan.investor.toLowerCase() === userAddr
-        );
-      });
+    return (
+      loans
+        // 1. Oculta empréstimos cancelados
+        .filter((loan) => loan.status !== 5)
+        // 2. Aplica o filtro 'Meus Empréstimos' se estiver ativo
+        .filter((loan) => {
+          if (!showMyLoansOnly || !userAddress) return true;
+          const userAddr = userAddress.toLowerCase();
+          return (
+            loan.borrower.toLowerCase() === userAddr ||
+            loan.investor.toLowerCase() === userAddr
+          );
+        })
+    );
   }, [loans, showMyLoansOnly, userAddress]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -970,6 +1024,7 @@ export default function InvestmentRequestsPage() {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
   };
 
+  // Reseta a página para 1 quando o filtro muda
   useEffect(() => {
     setCurrentPage(1);
   }, [showMyLoansOnly]);
@@ -995,10 +1050,10 @@ export default function InvestmentRequestsPage() {
         1
       )}%`;
     }
-    const processedLoans = loans.filter(
+    const proccesLoans = loans.filter(
       (loan) => loan.status >= 1 && loan.status < 5
     );
-    const totalVolumeWei = processedLoans.reduce(
+    const totalVolumeWei = proccesLoans.reduce(
       (acc, loan) => acc + loan.amountRequested,
       BigInt(0)
     );
@@ -1033,12 +1088,9 @@ export default function InvestmentRequestsPage() {
             </div>
             <nav className="hidden md:flex items-center gap-6">
               <RequestLoanDialog
-                onLoanCreated={handleLoanCreated}
-                trigger={
-                  <Button variant="outline" size="lg">
-                    Request Loan
-                  </Button>
-                }
+                triggerButtonText="Request Loan"
+                triggerButtonVariant="outline"
+                triggerButtonSize="lg"
               />
               <ConnectButton />
             </nav>
@@ -1137,18 +1189,14 @@ export default function InvestmentRequestsPage() {
                 : "No loans found. Create the first one!"}
             </p>
           ) : (
-            currentLoans.map((request, index) => (
+            currentLoans.map((request) => (
               <LoanRequestCard
                 key={request.id}
-                request={{
-                  ...request,
-                  id: loans.length - 1 - (indexOfFirstItem + index),
-                }}
+                request={request}
                 completedLoans={
                   borrowerStats[request.borrower.toLowerCase()]
                     ?.completedLoans || 0
                 }
-                onAction={handleAction}
               />
             ))
           )}
@@ -1158,7 +1206,7 @@ export default function InvestmentRequestsPage() {
             <Button
               onClick={handlePrevPage}
               disabled={currentPage === 1}
-              variant="ghost"
+              className="bg-transparent text-white hover:text-neutral-700 hover:bg-transparent"
             >
               Previous
             </Button>
@@ -1168,7 +1216,7 @@ export default function InvestmentRequestsPage() {
             <Button
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
-              variant="ghost"
+              className="bg-transparent text-white hover:text-neutral-700 hover:bg-transparent"
             >
               Next
             </Button>
@@ -1180,15 +1228,12 @@ export default function InvestmentRequestsPage() {
               <h3 className="text-2xl font-bold mb-2">Need a Loan?</h3>
               <p className="text-muted-foreground mb-6">
                 Join our platform and get access to competitive rates from
-                verified investors.
+                verified investors
               </p>
               <RequestLoanDialog
-                onLoanCreated={handleLoanCreated}
-                trigger={
-                  <Button variant="default" size="lg">
-                    Request a Loan
-                  </Button>
-                }
+                triggerButtonText="Request a Loan"
+                triggerButtonSize="lg"
+                triggerButtonClassName="bg-accent hover:bg-accent/90 text-accent-foreground"
               />
             </CardContent>
           </Card>
@@ -1214,9 +1259,9 @@ export default function InvestmentRequestsPage() {
                       Submit Request
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      Borrowers create loan requests specifying amount,
-                      interest, and duration. Optional collateral can be added
-                      to increase trust and lower rates.
+                      Connect your wallet and create a loan request specifying
+                      the amount, interest, and duration. You can add optional
+                      collateral to increase trust.
                     </p>
                   </div>
                 </div>
@@ -1228,12 +1273,12 @@ export default function InvestmentRequestsPage() {
                   </div>
                   <div className="bg-background border-2 border-accent/20 rounded-lg p-6 shadow-sm">
                     <h3 className="text-xl font-semibold mb-3 text-accent">
-                      AI Risk Analysis
+                      Reputation Score
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      Investors can use an AI-powered tool to analyze the
-                      borrowers on-chain history, receiving a risk score to
-                      inform their decision.
+                      The platform automatically analyzes your on-chain history
+                      to calculate an average Credit Score, giving investors a
+                      clear reputation metric.
                     </p>
                   </div>
                 </div>
@@ -1248,9 +1293,9 @@ export default function InvestmentRequestsPage() {
                       Funding & Repayment
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      Investors fund loans directly. Borrowers repay the
-                      contract, which automatically returns collateral,
-                      streamlining the process.
+                      Investors can fund the entire loan with one transaction.
+                      Borrowers can repay directly to the contract, even after
+                      the due date.
                     </p>
                   </div>
                 </div>
@@ -1262,12 +1307,12 @@ export default function InvestmentRequestsPage() {
                   </div>
                   <div className="bg-background border-2 border-accent/20 rounded-lg p-6 shadow-sm">
                     <h3 className="text-xl font-semibold mb-3 text-accent">
-                      Mandatory Feedback
+                      Automated Payouts
                     </h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      Investors must submit a final score for the borrower to
-                      withdraw their profits or claim collateral, building a
-                      robust reputation system.
+                      After repayment, investors withdraw their share. In case
+                      of default, collateral is split (90% for investor, 10% for
+                      platform).
                     </p>
                   </div>
                 </div>
@@ -1281,8 +1326,8 @@ export default function InvestmentRequestsPage() {
                   </div>
                   <h4 className="font-semibold mb-2">Higher Returns</h4>
                   <p className="text-sm text-muted-foreground">
-                    Earn competitive interest rates by lending directly to
-                    peers, cutting out traditional financial middlemen.
+                    Earn competitive returns by cutting out traditional banking
+                    intermediaries.
                   </p>
                 </CardContent>
               </Card>
@@ -1291,10 +1336,10 @@ export default function InvestmentRequestsPage() {
                   <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
                     <ShieldCheck className="h-6 w-6 text-accent" />
                   </div>
-                  <h4 className="font-semibold mb-2">On-Chain Security</h4>
+                  <h4 className="font-semibold mb-2">Flexible Security</h4>
                   <p className="text-sm text-muted-foreground">
-                    All transactions are secured by a smart contract, ensuring
-                    funds are handled according to predefined rules.
+                    Choose your risk level. Invest in loans secured by
+                    reputation or by optional collateral.
                   </p>
                 </CardContent>
               </Card>
