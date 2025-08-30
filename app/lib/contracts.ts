@@ -1,5 +1,5 @@
 // Arquivo gerado automaticamente - não edite manualmente
-// Data: 2025-08-28T01:53:33.042Z
+// Data: 2025-08-30T01:19:10.327Z
 
 export const LoanMarketABI = [
   {
@@ -588,7 +588,7 @@ export const LoanMarketABI = [
 
 // ⚠️ ATUALIZE ESTE ENDEREÇO APÓS O DEPLOY
 export const LOAN_MARKET_ADDRESS =
-  "0x49c5F2D41C412147efFD71E617ca38Ec5D7823E6" as const;
+  "0xd36fCa1591C7b95f582eE5f55cB297C353F3Bb33" as const;
 
 export const CONTRACTS = {
   LoanMarket: {

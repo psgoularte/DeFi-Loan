@@ -85,9 +85,11 @@ type Loan = {
 function ScoreStars({
   score,
   completedLoans,
+  isFinalScore,
 }: {
   score: number;
   completedLoans: number;
+  isFinalScore?: boolean;
 }) {
   const displayScore = score > 0 ? score : 0;
   return (
@@ -106,11 +108,16 @@ function ScoreStars({
         <span className="text-sm font-medium leading-tight">
           {displayScore > 0 ? displayScore.toFixed(1) : "N/A"}
         </span>
-        <span className="text-xs text-muted-foreground leading-tight">
-          {completedLoans > 0
-            ? `from ${completedLoans} loan${completedLoans > 1 ? "s" : ""}`
-            : "New Borrower"}
-        </span>
+        {/* Lógica para exibir o texto correto */}
+        {isFinalScore ? (
+          <span className="text-xs text-accent leading-tight">Final score</span>
+        ) : (
+          <span className="text-xs text-muted-foreground leading-tight">
+            {completedLoans > 0
+              ? `from ${completedLoans} loan${completedLoans > 1 ? "s" : ""}`
+              : "New Borrower"}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -323,6 +330,16 @@ function LoanRequestCard({
   const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
   const [aiError, setAiError] = useState("");
 
+  const isRepaymentDue = useMemo(() => {
+    if (request.status !== 2) return false;
+
+    const repaymentDeadline =
+      Number(request.startTimestamp) + Number(request.durationSecs);
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+
+    return currentTimestamp > repaymentDeadline;
+  }, [request.status, request.startTimestamp, request.durationSecs]);
+
   const { data: averageScoreData } = useReadContract({
     abi: LoanMarketABI,
     address: LOAN_MARKET_ADDRESS,
@@ -367,6 +384,7 @@ function LoanRequestCard({
         interestBps: Number(request.interestBps),
         durationDays: Number(request.durationSecs) / (60 * 60 * 24),
         collateral: formatUnits(request.collateralAmount, 18),
+        completedLoans: completedLoans,
       };
 
       const response = await fetch("/api/risk-analysis", {
@@ -482,7 +500,7 @@ function LoanRequestCard({
           <Button
             className="w-full"
             size="lg"
-            variant="default"
+            variant="destructive"
             disabled={isLoading}
             onClick={handleCancel}
           >
@@ -502,7 +520,7 @@ function LoanRequestCard({
           </Button>
         );
       }
-      if (request.status === 2 || request.status === 4) {
+      if (request.status === 2) {
         return (
           <div className="text-center">
             <Button
@@ -560,6 +578,21 @@ function LoanRequestCard({
             {isLoading ? "Cancelling..." : "Cancel & Reclaim Funds"}
           </Button>
         );
+      }
+      if (request.status === 2 && isRepaymentDue) {
+        if (request.collateralAmount > 0) {
+          return (
+            <Button
+              className="w-full"
+              size="lg"
+              variant="default"
+              disabled={isLoading}
+              onClick={handleClaimCollateral}
+            >
+              {isLoading ? "Claimming..." : "Claim Collateral"}
+            </Button>
+          );
+        }
       }
       if (request.status === 3) {
         if (withdrawableAmount && withdrawableAmount > 0) {
@@ -629,7 +662,7 @@ function LoanRequestCard({
         if (request.score === 0) {
           return (
             <div className="space-y-3 text-center">
-              <p className="text-sm font-medium text-destructive">
+              <p className="text-sm font-medium text-white">
                 Borrower defaulted. Leave your feedback
               </p>
               <div className="flex items-center justify-center gap-1">
@@ -758,12 +791,22 @@ function LoanRequestCard({
             >
               {request.borrower.slice(0, 6)}...{request.borrower.slice(-4)}
             </p>
+            {(isBorrower || isInvestor) && (
+              <Badge
+                variant={isBorrower ? "default" : "default"}
+                className="mt-2"
+              >
+                {isBorrower ? "Your Loan" : "You are the Investor"}
+              </Badge>
+            )}
           </div>
           <div className="flex flex-col items-end">
             <Badge
               variant="default"
               className="bg-accent text-accent-foreground"
-            >{`${Number(request.durationSecs) / (60 * 60 * 24)} days`}</Badge>
+            >
+              {`${Number(request.durationSecs) / (60 * 60 * 24)} days`}
+            </Badge>
             {loanEndDate && (
               <p className="text-xs text-muted-foreground text-right mt-1">
                 {loanEndDate}
@@ -779,7 +822,14 @@ function LoanRequestCard({
               <Star className="h-4 w-4 text-accent" />
               <span className="text-sm font-medium">Credit Score</span>
             </div>
-            <ScoreStars score={displayScore} completedLoans={completedLoans} />
+            <ScoreStars
+              score={displayScore}
+              completedLoans={completedLoans}
+              isFinalScore={
+                (request.status === 3 || request.status === 4) &&
+                request.score > 0
+              }
+            />
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">

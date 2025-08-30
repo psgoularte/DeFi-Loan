@@ -140,7 +140,7 @@ contract LoanMarket {
     function repay(uint loanId) external payable nonReentrant {
         Loan storage L = loans[loanId];
         require(L.borrower == msg.sender, "Not borrower");
-        require(L.status == Status.Active || L.status == Status.Defaulted, "Not repayable");
+        require(L.status == Status.Active, "Loan is not active");
 
         if (L.status == Status.Active) {
             checkDefault(loanId);
