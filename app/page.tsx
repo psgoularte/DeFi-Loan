@@ -340,6 +340,15 @@ function LoanRequestCard({
     return currentTimestamp > repaymentDeadline;
   }, [request.status, request.startTimestamp, request.durationSecs]);
 
+  const isProposalExpired = useMemo(() => {
+    if (request.status !== 0) return false;
+
+    const deadline = Number(request.fundingDeadline);
+    const now = Math.floor(Date.now() / 1000);
+
+    return now > deadline;
+  }, [request.status, request.fundingDeadline]);
+
   const { data: averageScoreData } = useReadContract({
     abi: LoanMarketABI,
     address: LOAN_MARKET_ADDRESS,
@@ -448,25 +457,16 @@ function LoanRequestCard({
       functionName: "cancelFundedLoan",
       args: [BigInt(request.id)],
     });
-  const handleLeaveScore = () => {
-    if (rating === 0) {
-      alert("Please select a score from 1 to 5.");
-      return;
-    }
-    writeContract({
-      abi: LoanMarketABI,
-      address: LOAN_MARKET_ADDRESS,
-      functionName: "leaveScore",
-      args: [BigInt(request.id), rating],
-    });
-  };
-  const handleWithdrawInvestorShare = () =>
+
+  const handleWithdrawInvestorShare = (score: number) => {
+    if (score < 1 || score > 5) return;
     writeContract({
       abi: LoanMarketABI,
       address: LOAN_MARKET_ADDRESS,
       functionName: "withdrawInvestorShare",
-      args: [BigInt(request.id)],
+      args: [BigInt(request.id), score],
     });
+  };
   const handleWithdrawCollateral = () =>
     writeContract({
       abi: LoanMarketABI,
@@ -474,13 +474,16 @@ function LoanRequestCard({
       functionName: "withdrawCollateral",
       args: [BigInt(request.id)],
     });
-  const handleClaimCollateral = () =>
+
+  const handleClaimCollateral = (score: number) => {
+    if (score < 1 || score > 5) return;
     writeContract({
       abi: LoanMarketABI,
       address: LOAN_MARKET_ADDRESS,
       functionName: "claimCollateral",
-      args: [BigInt(request.id)],
+      args: [BigInt(request.id), score],
     });
+  };
 
   const isLoading = isPending || isConfirming;
 
@@ -493,205 +496,248 @@ function LoanRequestCard({
   }, [request.status, request.startTimestamp, request.durationSecs]);
 
   const renderActionButtons = () => {
+    // page.tsx - Dentro da função renderActionButtons
+
     // Caso 1: O usuário é o TOMADOR do empréstimo
     if (isBorrower) {
-      if (request.status === 0) {
-        return (
-          <Button
-            className="w-full"
-            size="lg"
-            variant="destructive"
-            disabled={isLoading}
-            onClick={handleCancel}
-          >
-            {isLoading ? "Cancelling..." : "Cancel Loan"}
-          </Button>
-        );
-      }
-      if (request.status === 1) {
-        return (
-          <Button
-            className="w-full"
-            size="lg"
-            disabled={isLoading}
-            onClick={handleWithdraw}
-          >
-            {isLoading ? "Withdrawing..." : "Withdraw Funds"}
-          </Button>
-        );
-      }
-      if (request.status === 2) {
-        return (
-          <div className="text-center">
-            <Button
-              className="w-full"
-              size="lg"
-              disabled={isLoading}
-              onClick={handleRepay}
-            >
-              {isLoading
-                ? "Repaying..."
-                : `Repay Loan (${formatUnits(repaymentAmount, 18)} ETH)`}
-            </Button>
-          </div>
-        );
-      }
-      if (
-        request.status === 3 &&
-        request.collateralAmount > 0 &&
-        !request.collateralClaimed
-      ) {
-        return (
-          <Button
-            className="w-full"
-            size="lg"
-            disabled={isLoading}
-            onClick={handleWithdrawCollateral}
-          >
-            {isLoading
-              ? "Returning..."
-              : `Withdraw ${formatUnits(
-                  request.collateralAmount,
-                  18
-                )} ETH Collateral`}
-          </Button>
-        );
-      }
-      return (
-        <Button className="w-full" size="lg" disabled>
-          {STATUS_MAP[request.status]}
-        </Button>
-      );
-    }
-
-    // Caso 2: O usuário é o INVESTIDOR do empréstimo
-    if (isInvestor) {
-      if (request.status === 1 && isFundedAndExpired) {
-        return (
-          <Button
-            className="w-full"
-            size="lg"
-            variant="destructive"
-            disabled={isLoading}
-            onClick={handleCancelFundedLoan}
-          >
-            {isLoading ? "Cancelling..." : "Cancel & Reclaim Funds"}
-          </Button>
-        );
-      }
-      if (request.status === 2 && isRepaymentDue) {
-        if (request.collateralAmount > 0) {
-          return (
-            <Button
-              className="w-full"
-              size="lg"
-              variant="default"
-              disabled={isLoading}
-              onClick={handleClaimCollateral}
-            >
-              {isLoading ? "Claimming..." : "Claim Collateral"}
-            </Button>
-          );
-        }
-      }
-      if (request.status === 3) {
-        if (withdrawableAmount && withdrawableAmount > 0) {
-          return (
-            <Button
-              className="w-full"
-              size="lg"
-              disabled={isLoading}
-              onClick={handleWithdrawInvestorShare}
-            >
-              {isLoading
-                ? "Withdrawing..."
-                : `Withdraw ${formatUnits(withdrawableAmount, 18)} ETH`}
-            </Button>
-          );
-        }
-        if (request.score === 0) {
-          return (
-            <div className="space-y-3 text-center">
-              <p className="text-sm font-medium">Leave your feedback</p>
-              <div className="flex items-center justify-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star
-                    key={star}
-                    className={`h-6 w-6 cursor-pointer transition-colors ${
-                      (hoverRating || rating) >= star
-                        ? "fill-accent text-accent"
-                        : "text-muted-foreground"
-                    }`}
-                    onMouseEnter={() => setHoverRating(star)}
-                    onMouseLeave={() => setHoverRating(0)}
-                    onClick={() => setRating(star)}
-                  />
-                ))}
-              </div>
-              <Button
-                className="w-full"
-                size="lg"
-                disabled={isLoading || rating === 0}
-                onClick={handleLeaveScore}
-              >
-                {isLoading ? "Submitting..." : "Submit Score"}
-              </Button>
-            </div>
-          );
-        }
-      }
-      if (request.status === 4) {
-        if (request.collateralAmount > 0 && !request.collateralClaimed) {
+      switch (request.status) {
+        // Status 0: Aberto - Pode cancelar a qualquer momento antes de ser financiado.
+        case 0: // Open
           return (
             <Button
               className="w-full"
               size="lg"
               variant="destructive"
               disabled={isLoading}
-              onClick={handleClaimCollateral}
+              onClick={handleCancel}
             >
-              {isLoading
-                ? "Claiming..."
-                : `Claim ${formatUnits(
-                    request.collateralAmount,
-                    18
-                  )} ETH Collateral`}
+              {isLoading ? "Cancelling..." : "Cancel Loan"}
             </Button>
           );
-        }
-        if (request.score === 0) {
+
+        // Status 1: Financiado - Pode sacar os fundos, mas apenas ANTES do prazo final.
+        case 1: // Funded
           return (
-            <div className="space-y-3 text-center">
-              <p className="text-sm font-medium text-white">
-                Borrower defaulted. Leave your feedback
-              </p>
-              <div className="flex items-center justify-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star
-                    key={star}
-                    className={`h-6 w-6 cursor-pointer transition-colors ${
-                      (hoverRating || rating) >= star
-                        ? "fill-accent text-accent"
-                        : "text-muted-foreground"
-                    }`}
-                    onMouseEnter={() => setHoverRating(star)}
-                    onMouseLeave={() => setHoverRating(0)}
-                    onClick={() => setRating(star)}
-                  />
-                ))}
-              </div>
+            <Button
+              className="w-full"
+              size="lg"
+              // O botão é desabilitado se o prazo para saque/pagamento já passou.
+              disabled={isLoading || isRepaymentDue}
+              onClick={handleWithdraw}
+            >
+              {isLoading
+                ? "Withdrawing..."
+                : isRepaymentDue // Se o prazo passou, o texto muda.
+                ? "Withdrawal Period Expired"
+                : "Withdraw Funds"}
+            </Button>
+          );
+
+        // Status 2: Ativo - Pode pagar o empréstimo, mas apenas ANTES do prazo final.
+        case 2: // Active
+          return (
+            <Button
+              className="w-full"
+              size="lg"
+              // O botão é desabilitado se o prazo para pagamento já passou.
+              disabled={isLoading || isRepaymentDue}
+              onClick={handleRepay}
+            >
+              {isLoading
+                ? "Repaying..."
+                : isRepaymentDue // Se o prazo passou, o texto muda.
+                ? "Repayment Overdue"
+                : `Repay Loan (${formatUnits(repaymentAmount, 18)} ETH)`}
+            </Button>
+          );
+
+        // Status 3: Pago - Pode sacar a garantia, se houver.
+        case 3: // Repaid
+          if (request.collateralAmount > 0 && !request.collateralClaimed) {
+            return (
               <Button
                 className="w-full"
                 size="lg"
-                disabled={isLoading || rating === 0}
-                onClick={handleLeaveScore}
+                disabled={isLoading}
+                onClick={handleWithdrawCollateral}
               >
-                {isLoading ? "Submitting..." : "Submit Score"}
+                {isLoading
+                  ? "Returning..."
+                  : `Withdraw ${formatUnits(
+                      request.collateralAmount,
+                      18
+                    )} ETH Collateral`}
               </Button>
-            </div>
+            );
+          }
+          // Se já sacou a garantia ou não havia uma, mostra o status.
+          return (
+            <Button className="w-full" size="lg" disabled>
+              {STATUS_MAP[request.status]}
+            </Button>
           );
-        }
+
+        // Default: Para todos os outros estados (Defaulted, Cancelled), mostra um botão desabilitado.
+        default:
+          return (
+            <Button className="w-full" size="lg" disabled>
+              {STATUS_MAP[request.status]}
+            </Button>
+          );
       }
+    }
+
+    if (isInvestor) {
+      switch (request.status) {
+        // Status 1: Financiado - Permite cancelar se o tomador não sacar a tempo
+        case 1: // Funded
+          if (isFundedAndExpired) {
+            return (
+              <Button
+                className="w-full"
+                size="lg"
+                variant="destructive"
+                disabled={isLoading}
+                onClick={handleCancelFundedLoan}
+              >
+                {isLoading ? "Cancelling..." : "Cancel & Reclaim Funds"}
+              </Button>
+            );
+          }
+          break;
+
+        // Status 2: Ativo - Lógica crucial que você pediu para revisar
+        case 2: // Active
+          // Se o empréstimo está ativo, mas o prazo de pagamento já passou,
+          // o investidor pode reivindicar a garantia e deixar uma avaliação.
+          if (
+            isRepaymentDue &&
+            request.collateralAmount > 0 &&
+            !request.collateralClaimed
+          ) {
+            return (
+              <div className="space-y-3 text-center">
+                <p className="text-sm font-medium text-destructive">
+                  Repayment overdue. Claim collateral.
+                </p>
+                {/* Componente de Estrelas */}
+                <div className="flex items-center justify-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-6 w-6 cursor-pointer transition-colors ${
+                        (hoverRating || rating) >= star
+                          ? "fill-accent text-accent"
+                          : "text-muted-foreground"
+                      }`}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setRating(star)}
+                    />
+                  ))}
+                </div>
+                {/* Botão Unificado */}
+                <Button
+                  className="w-full"
+                  size="lg"
+                  variant="destructive"
+                  disabled={isLoading || rating === 0}
+                  onClick={() => handleClaimCollateral(rating)}
+                >
+                  {isLoading ? "Claiming..." : "Claim Collateral & Score"}
+                </Button>
+              </div>
+            );
+          }
+          break;
+
+        // Status 3: Pago - Permite sacar o valor e deixar uma avaliação
+        case 3: // Repaid
+          if (
+            withdrawableAmount &&
+            withdrawableAmount > 0 &&
+            request.score === 0
+          ) {
+            return (
+              <div className="space-y-3 text-center">
+                <p className="text-sm font-medium">
+                  Leave feedback to withdraw your funds.
+                </p>
+                {/* Componente de Estrelas */}
+                <div className="flex items-center justify-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-6 w-6 cursor-pointer transition-colors ${
+                        (hoverRating || rating) >= star
+                          ? "fill-accent text-accent"
+                          : "text-muted-foreground"
+                      }`}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setRating(star)}
+                    />
+                  ))}
+                </div>
+                {/* Botão Unificado */}
+                <Button
+                  className="w-full"
+                  size="lg"
+                  disabled={isLoading || rating === 0}
+                  onClick={() => handleWithdrawInvestorShare(rating)}
+                >
+                  {isLoading
+                    ? "Withdrawing..."
+                    : `Withdraw ${formatUnits(
+                        withdrawableAmount,
+                        18
+                      )} ETH & Score`}
+                </Button>
+              </div>
+            );
+          }
+          break;
+
+        // Status 4: Default - Permite reivindicar a garantia e deixar uma avaliação
+        case 4: // Defaulted
+          if (request.collateralAmount > 0 && !request.collateralClaimed) {
+            return (
+              <div className="space-y-3 text-center">
+                <p className="text-sm font-medium text-destructive">
+                  Borrower defaulted. Claim collateral.
+                </p>
+                {/* Componente de Estrelas */}
+                <div className="flex items-center justify-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-6 w-6 cursor-pointer transition-colors ${
+                        (hoverRating || rating) >= star
+                          ? "fill-accent text-accent"
+                          : "text-muted-foreground"
+                      }`}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setRating(star)}
+                    />
+                  ))}
+                </div>
+                <Button
+                  className="w-full"
+                  size="lg"
+                  variant="destructive"
+                  disabled={isLoading || rating === 0}
+                  onClick={() => handleClaimCollateral(rating)}
+                >
+                  {isLoading ? "Claiming..." : "Claim Collateral & Score"}
+                </Button>
+              </div>
+            );
+          }
+          break;
+      }
+
+      // Fallback: Para todos os outros estados, mostra apenas o status desabilitado.
       return (
         <Button className="w-full" size="lg" disabled>
           {STATUS_MAP[request.status]}
@@ -746,9 +792,9 @@ function LoanRequestCard({
           onClick={handleInvest}
         >
           {isLoading
-            ? isPending
-              ? "Signing..."
-              : "Confirming..."
+            ? "..."
+            : isProposalExpired
+            ? "Proposal Expired" // Mostra o novo estado
             : isLoanOpenForInvestment
             ? "Invest Now"
             : STATUS_MAP[request.status]}

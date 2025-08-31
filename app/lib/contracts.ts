@@ -1,5 +1,5 @@
 // Arquivo gerado automaticamente - não edite manualmente
-// Data: 2025-08-30T07:25:10.007Z
+// Data: 2025-08-31T02:35:43.132Z
 
 export const LoanMarketABI = [
   {
@@ -310,6 +310,11 @@ export const LoanMarketABI = [
         name: "loanId",
         type: "uint256",
       },
+      {
+        internalType: "uint8",
+        name: "score",
+        type: "uint8",
+      },
     ],
     name: "claimCollateral",
     outputs: [],
@@ -392,24 +397,6 @@ export const LoanMarketABI = [
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "loanId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint8",
-        name: "score",
-        type: "uint8",
-      },
-    ],
-    name: "leaveScore",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -555,6 +542,11 @@ export const LoanMarketABI = [
         name: "loanId",
         type: "uint256",
       },
+      {
+        internalType: "uint8",
+        name: "score",
+        type: "uint8",
+      },
     ],
     name: "withdrawInvestorShare",
     outputs: [],
@@ -588,7 +580,7 @@ export const LoanMarketABI = [
 
 // ⚠️ ATUALIZE ESTE ENDEREÇO APÓS O DEPLOY
 export const LOAN_MARKET_ADDRESS =
-  "0xB311AF2c367606d3965f847f0E4E0632fF65Ca0a" as const;
+  "0xdf7FEB7d467847AA9CE4eD46753e39117b402f6E" as const;
 
 export const CONTRACTS = {
   LoanMarket: {

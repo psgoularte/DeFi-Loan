@@ -105,7 +105,7 @@ contract LoanMarket {
         L.amountFunded = msg.value;
         L.investor = msg.sender;
         L.status = Status.Funded;
-        L.startTimestamp = block.timestamp; // O contador começa aqui
+        L.startTimestamp = block.timestamp; // O contador da duração do empréstimo começa aqui!
         emit Funded(loanId, msg.sender, msg.value);
     }
 
@@ -113,7 +113,10 @@ contract LoanMarket {
         Loan storage L = loans[loanId];
         require(L.borrower == msg.sender, "Not borrower");
         require(L.status == Status.Funded, "Not funded");
-        
+
+        uint repaymentDeadline = L.startTimestamp + L.durationSecs;
+        require(block.timestamp <= repaymentDeadline, "Withdraw period has passed");
+
         uint amount = L.amountFunded;
         require(amount > 0, "No amount");
 
@@ -142,9 +145,10 @@ contract LoanMarket {
         require(L.borrower == msg.sender, "Not borrower");
         require(L.status == Status.Active, "Loan is not active");
 
-        if (L.status == Status.Active) {
-            checkDefault(loanId);
-        }
+        uint repaymentDeadline = L.startTimestamp + L.durationSecs;
+        require(block.timestamp <= repaymentDeadline, "Repayment period has passed");
+
+        checkDefault(loanId);
         
         uint principal = L.amountRequested;
         uint interest = (principal * L.interestBps) / 10000;
@@ -162,14 +166,14 @@ contract LoanMarket {
 
         emit RepaymentMade(loanId, owed);
     }
-
-    function withdrawInvestorShare(uint loanId) external nonReentrant {
+    function withdrawInvestorShare(uint loanId, uint8 score) external nonReentrant {
         Loan storage L = loans[loanId];
         require(msg.sender == L.investor, "Not investor");
+        require(L.status == Status.Repaid, "Loan not repaid");
         require(feeWallet != address(0), "Fee wallet not set");
 
         uint available = withdrawableOf[loanId];
-        require(available > 0, "Nothing");
+        require(available > 0, "Nothing to withdraw");
         uint principal = L.amountRequested;
         withdrawableOf[loanId] = 0;
 
@@ -177,26 +181,21 @@ contract LoanMarket {
             uint profit = available - principal;
             uint platformFee = (profit * 10) / 100;
             uint investorShare = available - platformFee;
-
             (bool f, ) = feeWallet.call{value: platformFee}("");
             require(f, "Fee failed");
-
             (bool s, ) = msg.sender.call{value: investorShare}("");
             require(s, "Send failed");
-            
             emit InvestorWithdraw(loanId, msg.sender, investorShare);
         } else {
             (bool s, ) = msg.sender.call{value: available}("");
             require(s, "Send failed");
             emit InvestorWithdraw(loanId, msg.sender, available);
         }
+
+        _leaveScore(L, loanId, score);
     }
 
-    function leaveScore(uint loanId, uint8 score) external {
-        require(loanId < loans.length, "Invalid loan ID");
-        Loan storage L = loans[loanId];
-        require(msg.sender == L.investor, "Only the investor can leave a score");
-        require(L.status == Status.Repaid || L.status == Status.Defaulted, "Loan is not finished");
+    function _leaveScore(Loan storage L, uint loanId, uint8 score) internal {
         require(score >= 1 && score <= 5, "Score must be between 1 and 5");
         require(L.score == 0, "Score has already been left");
 
@@ -246,7 +245,7 @@ contract LoanMarket {
         emit CollateralWithdrawn(loanId, L.borrower, L.collateralAmount);
     }
 
-    function claimCollateral(uint loanId) external nonReentrant {
+    function claimCollateral(uint loanId, uint8 score) external nonReentrant {
         checkDefault(loanId); 
         
         Loan storage L = loans[loanId];
@@ -260,21 +259,22 @@ contract LoanMarket {
         uint gross = L.collateralAmount;
         uint fee = (gross * 10) / 100;
         uint net = gross - fee;
-
         (bool f, ) = feeWallet.call{value: fee}("");
         require(f, "Fee transfer failed");
-
         (bool s, ) = L.investor.call{value: net}("");
         require(s, "Investor transfer failed");
-
         emit CollateralClaimed(loanId, L.investor, gross, fee, net);
+        
+        _leaveScore(L, loanId, score);
     }
 
     function cancelFundedLoan(uint loanId) external nonReentrant {
-        Loan storage L = loans[loanId];
+    Loan storage L = loans[loanId];
         require(msg.sender == L.investor, "Not investor");
         require(L.status == Status.Funded, "Not funded");
-        require(block.timestamp > L.startTimestamp + L.durationSecs, "Loan has not expired yet");
+
+        uint withdrawalDeadline = L.startTimestamp + L.durationSecs;
+        require(block.timestamp > withdrawalDeadline, "Borrower's withdrawal period has not expired yet");
 
         L.status = Status.Cancelled;
 
@@ -287,7 +287,7 @@ contract LoanMarket {
         }
 
         emit LoanCancelled(loanId, L.borrower);
-    }
+        }
 
     // --- Views ---
     function getLoanCount() external view returns (uint) {
