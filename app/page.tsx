@@ -332,7 +332,7 @@ function LoanRequestCard({
   const [aiError, setAiError] = useState("");
 
   const isRepaymentDue = useMemo(() => {
-    if (request.status !== 2) return false;
+    if (request.status !== 1 && request.status !== 2) return false;
 
     const repaymentDeadline =
       Number(request.startTimestamp) + Number(request.durationSecs);
@@ -1154,8 +1154,8 @@ export default function InvestmentRequestsPage() {
               <Image
                 src="/logo.png"
                 alt="LenDeFi Logo"
-                width={24}
-                height={24}
+                width={40}
+                height={40}
                 className="rounded"
               />
 
