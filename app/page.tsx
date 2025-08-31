@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -1125,11 +1126,14 @@ export default function InvestmentRequestsPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-xl font-black text-primary-foreground">
-                  L
-                </span>
-              </div>
+              <Image
+                src="/logo.png"
+                alt="LenDeFi Logo"
+                width={24}
+                height={24}
+                className="rounded"
+              />
+
               <h1 className="text-xl font-bold">LenDeFi</h1>
             </div>
             <nav className="hidden md:flex items-center gap-6">
@@ -1147,11 +1151,14 @@ export default function InvestmentRequestsPage() {
         <div className="container mx-auto px-4 py-8 text-center">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-                <span className="text-2xl font-black text-primary-foreground">
-                  L
-                </span>
-              </div>
+              <Image
+                src="/logo.png"
+                alt="LenDeFi Logo"
+                width={24}
+                height={24}
+                className="rounded"
+              />
+
               <h1 className="text-3xl font-bold">LenDeFi</h1>
             </div>
             <p className="text-lg text-muted-foreground leading-relaxed">
@@ -1410,9 +1417,13 @@ export default function InvestmentRequestsPage() {
           <div className="flex justify-center text-center">
             <div>
               <div className="flex items-center justify-center gap-2 mb-2">
-                <div className="h-6 w-6 rounded bg-primary flex items-center justify-center">
-                  <span className="font-bold text-primary-foreground">L</span>
-                </div>
+                <Image
+                  src="/logo.png"
+                  alt="LenDeFi Logo"
+                  width={24}
+                  height={24}
+                  className="rounded"
+                />
                 <span className="font-bold">LenDeFi</span>
               </div>
               <p className="text-sm text-muted-foreground">
