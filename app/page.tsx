@@ -1110,7 +1110,7 @@ export default function InvestmentRequestsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Image
-                src="/logo.png"
+                src="/Logo.png"
                 alt="LenDeFi Logo"
                 width={24}
                 height={24}
@@ -1135,7 +1135,7 @@ export default function InvestmentRequestsPage() {
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center justify-center gap-3 mb-4">
               <Image
-                src="/logo.png"
+                src="/Logo.png"
                 alt="LenDeFi Logo"
                 width={40}
                 height={40}
@@ -1444,7 +1444,7 @@ export default function InvestmentRequestsPage() {
             <div>
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Image
-                  src="/logo.png"
+                  src="/Logo.png"
                   alt="LenDeFi Logo"
                   width={24}
                   height={24}
