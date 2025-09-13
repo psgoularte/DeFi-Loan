@@ -1341,9 +1341,8 @@ export default function InvestmentRequestsPage() {
                       </h4>
                       <p className="mt-2 text-sm text-muted-foreground">
                         An investor funds the loan, changing its status to
-                        "Funded". The borrower can then withdraw the funds,
-                        making the loan "Active". This is the start of the happy
-                        path.
+                        Funded. The borrower can then withdraw the funds, making
+                        the loan Active. This is the start of the happy path.
                       </p>
                     </div>
                   </div>
@@ -1388,8 +1387,8 @@ export default function InvestmentRequestsPage() {
                       </h4>
                       <p className="mt-2 text-sm text-muted-foreground">
                         The borrower fails to repay on time. The loan status
-                        changes to "Defaulted", allowing the investor to claim
-                        the collateral as compensation for the loss (90% for the
+                        changes to Defaulted, allowing the investor to claim the
+                        collateral as compensation for the loss (90% for the
                         investor, 10% for the platform).
                       </p>
                     </div>
