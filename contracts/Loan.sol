@@ -105,7 +105,7 @@ contract LoanMarket {
         L.amountFunded = msg.value;
         L.investor = msg.sender;
         L.status = Status.Funded;
-        L.startTimestamp = block.timestamp; // O contador da duração do empréstimo começa aqui!
+        L.startTimestamp = block.timestamp;
         emit Funded(loanId, msg.sender, msg.value);
     }
 
@@ -159,6 +159,14 @@ contract LoanMarket {
         L.status = Status.Repaid;
         withdrawableOf[loanId] = owed;
 
+        if (L.collateralAmount > 0) {
+            require(!L.collateralClaimed, "Collateral already handled");
+            L.collateralClaimed = true; // Marca a garantia como devolvida
+            (bool ok, ) = msg.sender.call{value: L.collateralAmount}("");
+            require(ok, "Collateral refund failed");
+            emit CollateralWithdrawn(loanId, L.borrower, L.collateralAmount);
+        }
+
         if (msg.value > owed) {
             (bool r, ) = msg.sender.call{value: msg.value - owed}("");
             require(r, "Refund failed");
@@ -166,6 +174,7 @@ contract LoanMarket {
 
         emit RepaymentMade(loanId, owed);
     }
+    
     function withdrawInvestorShare(uint loanId, uint8 score) external nonReentrant {
         Loan storage L = loans[loanId];
         require(msg.sender == L.investor, "Not investor");
@@ -231,19 +240,8 @@ contract LoanMarket {
         return (sum * 100) / count;
     }
 
-    function withdrawCollateral(uint loanId) external nonReentrant {
-        Loan storage L = loans[loanId];
-        require(msg.sender == L.borrower, "Not borrower");
-        require(L.status == Status.Repaid, "Not repaid");
-        require(!L.collateralClaimed, "Already claimed");
-        require(L.collateralAmount > 0, "No collateral");
-
-        L.collateralClaimed = true;
-        (bool ok, ) = L.borrower.call{value: L.collateralAmount}("");
-        require(ok, "Collateral transfer failed");
-
-        emit CollateralWithdrawn(loanId, L.borrower, L.collateralAmount);
-    }
+    // ##### FUNÇÃO REMOVIDA #####
+    // A função withdrawCollateral foi removida por ser redundante agora.
 
     function claimCollateral(uint loanId, uint8 score) external nonReentrant {
         checkDefault(loanId); 
@@ -269,7 +267,7 @@ contract LoanMarket {
     }
 
     function cancelFundedLoan(uint loanId) external nonReentrant {
-    Loan storage L = loans[loanId];
+        Loan storage L = loans[loanId];
         require(msg.sender == L.investor, "Not investor");
         require(L.status == Status.Funded, "Not funded");
 
@@ -287,7 +285,7 @@ contract LoanMarket {
         }
 
         emit LoanCancelled(loanId, L.borrower);
-        }
+    }
 
     // --- Views ---
     function getLoanCount() external view returns (uint) {

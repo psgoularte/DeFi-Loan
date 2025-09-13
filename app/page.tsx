@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Sparkles,
   Info,
+  ArrowDown,
 } from "lucide-react";
 import {
   Tooltip,
@@ -468,13 +469,9 @@ function LoanRequestCard({
       args: [BigInt(request.id), score],
     });
   };
-  const handleWithdrawCollateral = () =>
-    writeContract({
-      abi: LoanMarketABI,
-      address: LOAN_MARKET_ADDRESS,
-      functionName: "withdrawCollateral",
-      args: [BigInt(request.id)],
-    });
+
+  // ##### FUNÇÃO REMOVIDA #####
+  // A função handleWithdrawCollateral foi removida pois a lógica agora está no contrato.
 
   const handleClaimCollateral = (score: number) => {
     if (score < 1 || score > 5) return;
@@ -548,30 +545,16 @@ function LoanRequestCard({
                 ? "Repaying..."
                 : isRepaymentDue // Se o prazo passou, o texto muda.
                 ? "Repayment Overdue"
-                : `Repay Loan (${formatUnits(repaymentAmount, 18)} ETH)`}
+                : `Repay ${formatUnits(
+                    repaymentAmount,
+                    18
+                  )} ETH & Withdraw Collateral`}
             </Button>
           );
 
-        // Status 3: Pago - Pode sacar a garantia, se houver.
+        // ##### LÓGICA MODIFICADA #####
+        // Status 3: Pago - Agora, apenas exibe o status, pois a garantia já foi devolvida.
         case 3: // Repaid
-          if (request.collateralAmount > 0 && !request.collateralClaimed) {
-            return (
-              <Button
-                className="w-full"
-                size="lg"
-                disabled={isLoading}
-                onClick={handleWithdrawCollateral}
-              >
-                {isLoading
-                  ? "Returning..."
-                  : `Withdraw ${formatUnits(
-                      request.collateralAmount,
-                      18
-                    )} ETH Collateral`}
-              </Button>
-            );
-          }
-          // Se já sacou a garantia ou não havia uma, mostra o status.
           return (
             <Button className="w-full" size="lg" disabled>
               {STATUS_MAP[request.status]}
@@ -1298,79 +1281,123 @@ export default function InvestmentRequestsPage() {
             <h2 className="text-3xl font-bold text-center mb-12">
               How LenDeFi Works
             </h2>
-            <div className="relative">
-              <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-accent to-primary transform -translate-y-1/2"></div>
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 relative z-10">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                    <span className="text-2xl font-bold text-primary-foreground">
-                      1
-                    </span>
+            <div className="space-y-12">
+              {/* --- ETAPA 1: CRIAÇÃO --- */}
+              <div className="relative flex items-start">
+                {/* Círculo e Linha de Conexão */}
+                <div className="flex-shrink-0">
+                  <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary text-primary-foreground">
+                    <span className="font-bold text-lg">1</span>
                   </div>
-                  <div className="bg-background border-2 border-primary/20 rounded-lg p-6 shadow-sm">
-                    <h3 className="text-xl font-semibold mb-3 text-primary">
-                      Submit Request
-                    </h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      Connect your wallet and create a loan request specifying
-                      the amount, interest, and duration. You can add optional
-                      collateral to increase trust.
-                    </p>
+                  <div className="absolute left-6 top-12 w-px h-full bg-border"></div>
+                </div>
+                <div className="ml-6">
+                  <h3 className="text-xl font-bold text-primary">
+                    Create Loan Request
+                  </h3>
+                  <p className="mt-2 text-muted-foreground">
+                    The process begins when a borrower submits a loan request,
+                    defining the amount, interest, and duration. An optional
+                    collateral can be added to increase investor confidence.
+                  </p>
+                </div>
+              </div>
+
+              {/* --- ETAPA 2: DECISÃO (FINANCIADO OU NÃO) --- */}
+              <div className="relative flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary text-primary-foreground">
+                    <span className="font-bold text-lg">2</span>
+                  </div>
+                  <div className="absolute left-6 top-12 w-px h-full bg-border"></div>
+                </div>
+                <div className="ml-6 w-full">
+                  <h3 className="text-xl font-bold text-primary">
+                    Funding Period
+                  </h3>
+                  <p className="mt-2 text-muted-foreground">
+                    The loan is now open for investors. Two paths are possible
+                    from here:
+                  </p>
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Caminho A: Não Financiado */}
+                    <div className="bg-background border border-border rounded-lg p-6">
+                      <h4 className="font-semibold text-lg">
+                        Path A: Not Funded
+                      </h4>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        If the funding deadline passes without an investor, the
+                        loan expires. The borrower can then call the{" "}
+                        <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                          cancelLoan
+                        </code>{" "}
+                        function to have their collateral fully refunded.
+                      </p>
+                    </div>
+                    {/* Caminho B: Financiado */}
+                    <div className="bg-background border-2 border-accent rounded-lg p-6">
+                      <h4 className="font-semibold text-lg text-accent">
+                        Path B: Funded
+                      </h4>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        An investor funds the loan, changing its status to
+                        'Funded'. The borrower can then withdraw the funds,
+                        making the loan 'Active'. This is the start of the happy
+                        path.
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                    <span className="text-2xl font-bold text-accent-foreground">
-                      2
-                    </span>
-                  </div>
-                  <div className="bg-background border-2 border-accent/20 rounded-lg p-6 shadow-sm">
-                    <h3 className="text-xl font-semibold mb-3 text-accent">
-                      Reputation Score
-                    </h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      The platform automatically analyzes your on-chain history
-                      to calculate an average Credit Score, giving investors a
-                      clear reputation metric.
-                    </p>
+              </div>
+
+              {/* --- ETAPA 3: RESULTADO (PAGO OU INADIMPLENTE) --- */}
+              <div className="relative flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary text-primary-foreground">
+                    <span className="font-bold text-lg">3</span>
                   </div>
                 </div>
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                    <span className="text-2xl font-bold text-primary-foreground">
-                      3
-                    </span>
-                  </div>
-                  <div className="bg-background border-2 border-primary/20 rounded-lg p-6 shadow-sm">
-                    <h3 className="text-xl font-semibold mb-3 text-primary">
-                      Funding & Repayment
-                    </h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      Investors can fund the entire loan with one transaction.
-                      Borrowers can repay directly to the contract, even after
-                      the due date.
-                    </p>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                    <span className="text-2xl font-bold text-accent-foreground">
-                      4
-                    </span>
-                  </div>
-                  <div className="bg-background border-2 border-accent/20 rounded-lg p-6 shadow-sm">
-                    <h3 className="text-xl font-semibold mb-3 text-accent">
-                      Automated Payouts
-                    </h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      After repayment, investors withdraw their share. In case
-                      of default, collateral is split (90% for investor, 10% for
-                      platform).
-                    </p>
+                <div className="ml-6 w-full">
+                  <h3 className="text-xl font-bold text-primary">
+                    Loan Outcome
+                  </h3>
+                  <p className="mt-2 text-muted-foreground">
+                    Once the loan is active and the duration ends, one of two
+                    outcomes will occur:
+                  </p>
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Resultado A: Pago */}
+                    <div className="bg-background border-2 border-accent rounded-lg p-6">
+                      <h4 className="font-semibold text-lg text-accent">
+                        Outcome: Repaid
+                      </h4>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        The borrower repays the loan plus interest. The
+                        collateral is{" "}
+                        <span className="font-bold">
+                          automatically returned
+                        </span>{" "}
+                        in the same transaction. The investor can then withdraw
+                        their principal and profit.
+                      </p>
+                    </div>
+                    {/* Resultado B: Inadimplente */}
+                    <div className="bg-background border border-border rounded-lg p-6">
+                      <h4 className="font-semibold text-lg">
+                        Outcome: Defaulted
+                      </h4>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        The borrower fails to repay on time. The loan status
+                        changes to 'Defaulted', allowing the investor to claim
+                        the collateral as compensation for the loss (90% for the
+                        investor, 10% for the platform).
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
             <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="border-primary/20">
                 <CardContent className="p-6 text-center">
